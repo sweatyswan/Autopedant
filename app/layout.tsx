@@ -12,8 +12,15 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://sweatyswan.github.io/Autopedant"),
   title: "Autopedant | Prehľad servisovaných vozidiel",
   description: "Servisná evidencia dielne. Vyhľadávanie podľa EČV a VIN, práca a zisk z dielov.",
+  openGraph: {
+    title: "Autopedant | Prehľad servisovaných vozidiel",
+    description: "Servisná evidencia dielne. Vyhľadávanie podľa EČV a VIN, práca a zisk z dielov.",
+    locale: "sk_SK",
+    type: "website",
+  },
 }
 
 export default function RootLayout({
