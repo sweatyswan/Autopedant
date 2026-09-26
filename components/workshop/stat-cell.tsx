@@ -1,4 +1,10 @@
-import { typeCaption } from "@/components/workshop/styles"
+import {
+  typeCaption,
+  typeDisplay,
+  typeTabular,
+  typeTitle,
+  typeTone,
+} from "@/components/workshop/styles"
 import { cn } from "@/lib/utils"
 
 export function StatCell({
@@ -6,14 +12,16 @@ export function StatCell({
   value,
   share,
   tone = "plain",
+  loud = false,
 }: {
   label: string
   value: string
   share?: string
   tone?: "plain" | "profit" | "negative"
+  loud?: boolean
 }) {
-  const toneClass =
-    tone === "profit" ? "text-[#0B6E96]" : tone === "negative" ? "text-red-700" : "text-black"
+  const toneClass = tone === "profit" ? typeTone(1) : tone === "negative" ? typeTone(-1) : typeTone(0)
+  const valueClass = loud ? typeDisplay : typeTitle
 
   return (
     <div
@@ -25,14 +33,12 @@ export function StatCell({
     >
       <span className={typeCaption}>{label}</span>
       {share ? (
-        <div className="grid grid-cols-[4.5rem_2.5rem] items-baseline gap-x-1.5 text-left tabular-nums">
-          <span className={cn("text-left text-sm font-semibold", toneClass)}>{value}</span>
-          <span className={cn("text-left text-xs font-normal", toneClass)}>({share})</span>
+        <div className="flex items-baseline gap-x-1.5 text-left tabular-nums">
+          <span className={cn(valueClass, typeTabular, toneClass)}>{value}</span>
+          <span className={cn(typeCaption, "font-normal", toneClass)}>({share})</span>
         </div>
       ) : (
-        <span className={cn("text-left text-sm font-semibold tabular-nums", toneClass)}>
-          {value}
-        </span>
+        <span className={cn(valueClass, typeTabular, toneClass)}>{value}</span>
       )}
     </div>
   )

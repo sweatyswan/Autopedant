@@ -1,257 +1,35 @@
+import { normalizeCode } from "@/lib/format"
 import type { WorkshopData } from "@/lib/types"
 
-export const seedData: WorkshopData = {
-  customers: [
-    {
-      id: "cus_peter",
-      name: "Peter Holub",
-      phone: "+421 905 114 220",
-    },
-    {
-      id: "cus_martina",
-      name: "Martina Kováčová",
-      phone: "+421 908 331 447",
-      email: "martina.kovacova@example.com",
-    },
-    {
-      id: "cus_andrej",
-      name: "Andrej Sokol",
-      phone: "+421 907 552 618",
-    },
-  ],
-  vehicles: [
-    {
-      id: "veh_octavia",
-      licensePlate: "BA-123XY",
-      vin: "TMBJG7NE5J0123456",
-      makeModel: "Škoda Octavia",
-      year: 2018,
-      firstRegistrationDate: "2018-04-19",
-      engineDisplacement: 1.6,
-      fuel: "Nafta",
-      customerId: "cus_peter",
-    },
-    {
-      id: "veh_leon",
-      licensePlate: "BA-321EF",
-      vin: "VSSZZZ5FZLR123456",
-      makeModel: "Seat Leon",
-      year: 2020,
-      firstRegistrationDate: "2020-08-03",
-      engineDisplacement: 1.5,
-      fuel: "Benzín",
-      customerId: "cus_peter",
-    },
-    {
-      id: "veh_sportage",
-      licensePlate: "ZH-456AB",
-      vin: "U5YPH814AHL123456",
-      makeModel: "Kia Sportage",
-      year: 2016,
-      firstRegistrationDate: "2016-11-14",
-      engineDisplacement: 1.7,
-      fuel: "Nafta",
-      customerId: "cus_martina",
-    },
-    {
-      id: "veh_clio",
-      licensePlate: "TT-789CD",
-      vin: "VF1RFA00060123456",
-      makeModel: "Renault Clio",
-      year: 2015,
-      firstRegistrationDate: "2015-06-27",
-      engineDisplacement: 1.2,
-      fuel: "Benzín",
-      customerId: "cus_andrej",
-    },
-  ],
-  records: [
-    {
-      id: "rec_octavia_1",
-      vehicleId: "veh_octavia",
-      serviceDate: "2026-01-14",
-      mileage: 172400,
-      laborCost: 55,
-      mechanicNotes: "Peľový filter ešte slúži. Ďalší olej o 15 000 km.",
-      items: [
-        {
-          id: "item_octavia_1_oil",
-          category: "Motor a prevodovka",
-          actionType: "Výmena",
-          partName: "Olej motorový",
-          partBrand: "Castrol",
-          materialType: "5W-30",
-          quantity: "5 l",
-          purchasePrice: 28,
-          sellPrice: 49,
-        },
-        {
-          id: "item_octavia_1_filter",
-          category: "Motor a prevodovka",
-          actionType: "Výmena",
-          partName: "Filter olejový – motor",
-          partBrand: "Mann",
-          materialType: "",
-          quantity: "",
-          purchasePrice: 6,
-          sellPrice: 14,
-        },
-        {
-          id: "item_octavia_1_pollen",
-          category: "Motor a prevodovka",
-          actionType: "Kontrola",
-          partName: "Filter kabínový",
-          partBrand: "",
-          materialType: "",
-          quantity: "",
-          purchasePrice: 0,
-          sellPrice: 0,
-        },
-      ],
-    },
-    {
-      id: "rec_octavia_2",
-      vehicleId: "veh_octavia",
-      serviceDate: "2026-06-02",
-      mileage: 186900,
-      laborCost: 80,
-      mechanicNotes: "Kotúče sú v limite. Predné platničky vymenené.",
-      nextServiceDate: "2026-12-02",
-      nextServiceMileage: 201900,
-      items: [
-        {
-          id: "item_octavia_2_pads",
-          category: "Podvozok a brzdy",
-          actionType: "Výmena",
-          partName: "Brzdové doštičky / čeľuste",
-          partBrand: "ATE",
-          materialType: "",
-          quantity: "",
-          purchasePrice: 42,
-          sellPrice: 79,
-        },
-        {
-          id: "item_octavia_2_discs",
-          category: "Podvozok a brzdy",
-          actionType: "Kontrola",
-          partName: "Brzdové kotúče",
-          partBrand: "",
-          materialType: "",
-          quantity: "",
-          purchasePrice: 0,
-          sellPrice: 0,
-        },
-      ],
-    },
-    {
-      id: "rec_sportage_1",
-      vehicleId: "veh_sportage",
-      serviceDate: "2026-02-20",
-      mileage: 214300,
-      laborCost: 60,
-      mechanicNotes: "Výmena oleja, olejového a vzduchového filtra.",
-      nextServiceDate: "2026-08-20",
-      nextServiceMileage: 229300,
-      items: [
-        {
-          id: "item_sportage_oil",
-          category: "Motor a prevodovka",
-          actionType: "Výmena",
-          partName: "Olej motorový",
-          partBrand: "Shell",
-          materialType: "5W-30",
-          quantity: "5 l",
-          purchasePrice: 31,
-          sellPrice: 54,
-        },
-        {
-          id: "item_sportage_oil_filter",
-          category: "Motor a prevodovka",
-          actionType: "Výmena",
-          partName: "Filter olejový – motor",
-          partBrand: "Mahle",
-          materialType: "",
-          quantity: "",
-          purchasePrice: 7,
-          sellPrice: 16,
-        },
-        {
-          id: "item_sportage_air",
-          category: "Motor a prevodovka",
-          actionType: "Výmena",
-          partName: "Filter vzduchový",
-          partBrand: "Knecht",
-          materialType: "",
-          quantity: "",
-          purchasePrice: 9,
-          sellPrice: 22,
-        },
-      ],
-    },
-    {
-      id: "rec_clio_1",
-      vehicleId: "veh_clio",
-      serviceDate: "2026-04-08",
-      mileage: 98800,
-      laborCost: 40,
-      mechanicNotes: "Akumulátor je slabý, zatiaľ bez výmeny. Voľnobeh nastavený.",
-      items: [
-        {
-          id: "item_clio_battery",
-          category: "Motor a prevodovka",
-          actionType: "Kontrola",
-          partName: "Autobatéria",
-          partBrand: "",
-          materialType: "",
-          quantity: "",
-          purchasePrice: 0,
-          sellPrice: 0,
-        },
-        {
-          id: "item_clio_idle",
-          category: "Motor a prevodovka",
-          actionType: "Nastavenie",
-          partName: "Voľnobeh",
-          partBrand: "",
-          materialType: "",
-          quantity: "",
-          purchasePrice: 0,
-          sellPrice: 15,
-        },
-      ],
-    },
-    {
-      id: "rec_leon_1",
-      vehicleId: "veh_leon",
-      serviceDate: "2026-05-19",
-      mileage: 64120,
-      laborCost: 120,
-      mechanicNotes: "Únik sa nepotvrdil. Chladivo doplnené.",
-      nextServiceMileage: 79120,
-      items: [
-        {
-          id: "item_leon_gas",
-          category: "Karoséria",
-          actionType: "Oprava",
-          partName: "Klimatizácia",
-          partBrand: "Valeo",
-          materialType: "",
-          quantity: "",
-          purchasePrice: 35,
-          sellPrice: 70,
-        },
-        {
-          id: "item_leon_leak",
-          category: "Karoséria",
-          actionType: "Kontrola",
-          partName: "Klimatizácia",
-          partBrand: "",
-          materialType: "",
-          quantity: "",
-          purchasePrice: 0,
-          sellPrice: 0,
-        },
-      ],
-    },
-  ],
+export const emptyWorkshop: WorkshopData = {
+  customers: [],
+  vehicles: [],
+  records: [],
+}
+
+const demoVehicleIds = new Set(["veh_octavia", "veh_leon", "veh_sportage", "veh_clio"])
+const demoRecordIds = new Set([
+  "rec_octavia_1",
+  "rec_octavia_2",
+  "rec_leon_1",
+  "rec_sportage_1",
+  "rec_clio_1",
+])
+const demoPlates = new Set(["BA123XY", "BA321EF", "ZH456AB", "TT789CD"])
+const demoNames = new Set(["Peter Holub", "Martina Kováčová", "Andrej Sokol"])
+
+export function stripDemoWorkshop(data: WorkshopData): WorkshopData {
+  const vehicles = data.vehicles.filter(
+    (vehicle) => !demoVehicleIds.has(vehicle.id) && !demoPlates.has(normalizeCode(vehicle.licensePlate))
+  )
+  const vehicleIds = new Set(vehicles.map((vehicle) => vehicle.id))
+  const records = data.records.filter(
+    (record) => !demoRecordIds.has(record.id) && vehicleIds.has(record.vehicleId)
+  )
+  const customerIds = new Set(vehicles.map((vehicle) => vehicle.customerId))
+  const customers = data.customers.filter(
+    (customer) => customerIds.has(customer.id) && !demoNames.has(customer.name)
+  )
+
+  return { customers, vehicles, records }
 }

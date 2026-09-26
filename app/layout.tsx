@@ -2,8 +2,11 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 
 import "./globals.css"
+import { AuthGate } from "@/components/workshop/auth-gate"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/lib/auth-context"
 import { WorkshopProvider } from "@/lib/workshop-context"
+import { canvasClass } from "@/components/workshop/styles"
 import { cn } from "@/lib/utils"
 
 const inter = Inter({
@@ -34,9 +37,13 @@ export default function RootLayout({
       suppressHydrationWarning
       className={cn(inter.variable)}
     >
-      <body className="min-h-svh bg-[#F4F6F8] font-sans text-black antialiased print:bg-white">
+      <body className={cn("min-h-svh font-sans text-black antialiased print:bg-white", canvasClass)}>
         <ThemeProvider>
-          <WorkshopProvider>{children}</WorkshopProvider>
+          <AuthProvider>
+            <AuthGate>
+              <WorkshopProvider>{children}</WorkshopProvider>
+            </AuthGate>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

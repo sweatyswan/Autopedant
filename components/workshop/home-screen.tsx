@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Plus } from "@keyline-icons/react"
-import { ArrowDownNarrowWide, ArrowUpNarrowWide } from "lucide-react"
+import { ArrowDownNarrowWide, ArrowUpNarrowWide, Plus, X } from "@keyline-icons/react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -18,27 +17,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { AppHeader } from "@/components/workshop/app-header"
 import {
   fieldClass,
+  iconSize,
+  popoverSurfaceClass,
   primaryButtonClass,
   quietButtonClass,
+  rowActiveClass,
   rowHoverClass,
   surfaceClass,
   typeBody,
-  typeBrand,
+  typeDisplay,
   typeCaption,
   typeDash,
   typeMeta,
-  typeTitle,
 } from "@/components/workshop/styles"
 import { HomeStats } from "@/components/workshop/home-stats"
 import { PeriodFilter } from "@/components/workshop/period-filter"
@@ -51,7 +44,6 @@ import {
   latestOilUpcoming,
   serviceYears,
   sortVehicles,
-  vehicleBrands,
   type ListFilters,
   type ListSort,
   type ListSortDirection,
@@ -76,11 +68,9 @@ export function HomeScreen() {
   const [active, setActive] = useState(0)
   const [vehicleOpen, setVehicleOpen] = useState(false)
 
-  const brands = useMemo(() => vehicleBrands(vehicles), [vehicles])
   const years = useMemo(() => serviceYears(records), [records])
   const filtersActive =
     Boolean(filters.year || filters.monthFrom || filters.monthTo) ||
-    filters.brand !== "all" ||
     sort !== "last" ||
     direction !== "desc"
 
@@ -99,12 +89,8 @@ export function HomeScreen() {
   function openActive() {
     const vehicle = results[active]
     if (vehicle) {
-      router.push(`/vozidlo/${vehicle.id}`)
+      router.push(`/vozidlo?id=${vehicle.id}`)
     }
-  }
-
-  function updateFilter<Key extends keyof ListFilters>(key: Key, value: ListFilters[Key]) {
-    setFilters((current) => ({ ...current, [key]: value }))
   }
 
   return (
@@ -112,8 +98,8 @@ export function HomeScreen() {
       <AppHeader
         actions={
           <Button className={primaryButtonClass} onClick={() => setVehicleOpen(true)}>
-            <Plus />
             Nové vozidlo
+            <Plus size={iconSize} />
           </Button>
         }
       />
@@ -121,48 +107,38 @@ export function HomeScreen() {
         <HomeStats vehicles={vehicles.length} visits={records.length} totals={totals} />
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-          <div className="grid min-w-0 flex-1 grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <label className={typeCaption} htmlFor="vehicle-search">
-                Hľadať podľa EČV, VIN alebo mena
-              </label>
-              <Input
-                id="vehicle-search"
-                className={fieldClass}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (results.length === 0) {
-                    return
-                  }
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <label className={typeCaption} htmlFor="vehicle-search">
+              Hľadať podľa EČV, VIN alebo mena
+            </label>
+            <Input
+              id="vehicle-search"
+              className={fieldClass}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (results.length === 0) {
+                  return
+                }
 
-                  if (event.key === "ArrowDown") {
-                    event.preventDefault()
-                    setActive((index) => Math.min(index + 1, results.length - 1))
-                  }
+                if (event.key === "ArrowDown") {
+                  event.preventDefault()
+                  setActive((index) => Math.min(index + 1, results.length - 1))
+                }
 
-                  if (event.key === "ArrowUp") {
-                    event.preventDefault()
-                    setActive((index) => Math.max(index - 1, 0))
-                  }
+                if (event.key === "ArrowUp") {
+                  event.preventDefault()
+                  setActive((index) => Math.max(index - 1, 0))
+                }
 
-                  if (event.key === "Enter") {
-                    event.preventDefault()
-                    openActive()
-                  }
-                }}
-                placeholder="Napr. BA123XY"
-                autoFocus
-                autoComplete="off"
-              />
-            </div>
-            <FilterSelect
-              id="filter-brand"
-              label="Značka"
-              value={filters.brand}
-              display={filters.brand === "all" ? "Všetky" : filters.brand}
-              onChange={(value) => updateFilter("brand", value)}
-              options={[{ value: "all", label: "Všetky" }, ...brands.map((brand) => ({ value: brand, label: brand }))]}
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  openActive()
+                }
+              }}
+              placeholder="Napr. BA123XY"
+              autoFocus
+              autoComplete="off"
             />
           </div>
           <div className="flex items-end gap-2">
@@ -204,12 +180,17 @@ export function HomeScreen() {
               }}
             >
               Zrušiť filtre
+              <X size={iconSize} />
             </Button>
           </div>
         ) : null}
 
         {results.length === 0 ? (
-          <p className={typeBody}>Nič sa nenašlo. Upravte hľadanie alebo filtre.</p>
+          <p className={typeBody}>
+            {vehicles.length === 0
+              ? "V evidencii zatiaľ nie je žiadne vozidlo."
+              : "Nič sa nenašlo. Upravte hľadanie alebo filtre."}
+          </p>
         ) : (
           <div className={cn("overflow-hidden rounded-lg", surfaceClass)}>
             <div className={cn("hidden border-b border-neutral-200 px-4 py-2 sm:grid sm:items-center", listGrid)}>
@@ -229,31 +210,31 @@ export function HomeScreen() {
                   key={vehicle.id}
                   className={cn(
                     "border-b border-neutral-200 last:border-b-0",
-                    index === active && "bg-[#F4F6F8]"
+                    index === active && rowActiveClass
                   )}
                   onMouseEnter={() => setActive(index)}
                 >
                   <Link
-                    href={`/vozidlo/${vehicle.id}`}
+                    href={`/vozidlo?id=${vehicle.id}`}
                     className={cn(listGrid, rowHoverClass, "p-4 text-black no-underline sm:items-center")}
                   >
                     <div className="min-w-0 text-left">
                       <div className={`${typeCaption} sm:hidden`}>Vozidlo</div>
-                      <div className={typeBrand}>{formatPlate(vehicle.licensePlate)}</div>
+                      <div className={typeDisplay}>{formatPlate(vehicle.licensePlate)}</div>
                       <div className={typeBody}>{formatVehicleSpec(vehicle)}</div>
+                      <div className={cn(typeMeta, "truncate tabular-nums", !vehicle.vin && typeDash)}>
+                        {vehicle.vin || "–"}
+                      </div>
                     </div>
                     <div className="min-w-0 text-left">
                       <div className={`${typeCaption} sm:hidden`}>Zákazník</div>
                       <div className={cn(typeBody, "truncate", !customer?.name && typeDash)}>
                         {customer?.name || "–"}
                       </div>
-                      <div className={cn(typeMeta, "truncate tabular-nums", !vehicle.vin && typeDash)}>
-                        {vehicle.vin || "–"}
-                      </div>
                     </div>
                     <div className="min-w-0 text-left">
                       <div className={`${typeCaption} sm:hidden`}>Posledný servis</div>
-                      <div className={cn(lastOil ? typeTitle : typeMeta, !lastOil && typeDash, "truncate")}>
+                      <div className={cn(typeMeta, "truncate", !lastOil && typeDash)}>
                         {lastOil
                           ? `${formatDate(lastOil.serviceDate)} · ${formatKm(lastOil.mileage)}`
                           : "–"}
@@ -277,49 +258,6 @@ export function HomeScreen() {
   )
 }
 
-function FilterSelect({
-  id,
-  label,
-  value,
-  display,
-  onChange,
-  options,
-}: {
-  id: string
-  label: string
-  value: string
-  display: string
-  onChange: (value: string) => void
-  options: Array<{ value: string; label: string }>
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <Label className={typeCaption} htmlFor={id}>
-        {label}
-      </Label>
-      <Select
-        value={value}
-        onValueChange={(next) => {
-          if (next) {
-            onChange(next)
-          }
-        }}
-      >
-        <SelectTrigger id={id} className={`${fieldClass} w-full`}>
-          <SelectValue>{display}</SelectValue>
-        </SelectTrigger>
-        <SelectContent className="border border-neutral-200 bg-white text-black">
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  )
-}
-
 function SortMenu({
   sort,
   direction,
@@ -338,11 +276,11 @@ function SortMenu({
         aria-label="Zoradiť"
         title="Zoradiť"
       >
-        {direction === "asc" ? <ArrowUpNarrowWide /> : <ArrowDownNarrowWide />}
+        {direction === "asc" ? <ArrowUpNarrowWide size={iconSize} /> : <ArrowDownNarrowWide size={iconSize} />}
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-auto min-w-56 border border-neutral-200 bg-white text-black"
+        className={cn(popoverSurfaceClass, "w-auto min-w-56")}
       >
         <DropdownMenuGroup>
           <DropdownMenuLabel className={cn(typeCaption, "px-1.5 pt-1 pb-0.5 tracking-wide")}>

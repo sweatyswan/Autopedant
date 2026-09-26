@@ -21,6 +21,29 @@ export function formatKm(value: number) {
   return `${new Intl.NumberFormat("sk-SK").format(value)} km`
 }
 
+export function formatKmInput(value: string | number) {
+  const digits = String(value).replace(/\D/g, "")
+  if (!digits) {
+    return ""
+  }
+
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ")
+}
+
+export function parseKm(value: string) {
+  const digits = value.replace(/\s/g, "")
+  if (!digits || !/^\d+$/.test(digits)) {
+    return null
+  }
+
+  const km = Number(digits)
+  if (!Number.isInteger(km) || km < 0) {
+    return null
+  }
+
+  return km
+}
+
 export function formatNextService(record: {
   nextServiceDate?: string
   nextServiceMileage?: number

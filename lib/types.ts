@@ -52,6 +52,8 @@ export type ServiceRecord = {
   serviceDate: string
   mileage: number
   laborCost: number
+  materialEarnings?: number
+  billedAmount?: number
   mechanicNotes: string
   nextServiceDate?: string
   nextServiceMileage?: number

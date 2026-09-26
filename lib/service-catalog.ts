@@ -79,11 +79,15 @@ const legacyCategories: Record<string, ServiceCategory> = {
   "Elektrika a diagnostika": "Ostatné práce a diely",
 }
 
-export function operationsFor(category: ServiceCategory) {
+export function operationsFor(category?: ServiceCategory | "") {
+  if (!category) {
+    return []
+  }
+
   return serviceGroups.find((group) => group.category === category)?.operations ?? []
 }
 
-export function actionsFor(category: ServiceCategory): ServiceActionType[] {
+export function actionsFor(category?: ServiceCategory | ""): ServiceActionType[] {
   if (category === "Karoséria") {
     return ["Výmena", "Oprava", "Kontrola"]
   }
@@ -91,7 +95,7 @@ export function actionsFor(category: ServiceCategory): ServiceActionType[] {
   return ["Výmena", "Oprava", "Nastavenie", "Kontrola"]
 }
 
-export function isCustomOperation(category: ServiceCategory, name: string) {
+export function isCustomOperation(category?: ServiceCategory | "", name = "") {
   return operationsFor(category).some((operation) => operation.name === name && operation.custom)
 }
 

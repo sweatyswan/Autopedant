@@ -1,10 +1,18 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { ChevronDown } from "lucide-react"
+import { Calendar } from "@keyline-icons/react"
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { fieldClass, typeCaption } from "@/components/workshop/styles"
+import {
+  chipClass,
+  chipRangeClass,
+  chipSelectedClass,
+  fieldClass,
+  iconSize,
+  popoverSurfaceClass,
+  typeCaption,
+} from "@/components/workshop/styles"
 import { monthLabels } from "@/lib/list-query"
 import { cn } from "@/lib/utils"
 
@@ -40,11 +48,11 @@ export function PeriodFilter({
         )}
       >
         <span className="min-w-0 truncate">{periodLabel(year, monthFrom, monthTo)}</span>
-        <ChevronDown className="size-3.5 shrink-0 text-neutral-700" />
+        <Calendar size={iconSize} />
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="w-56 border border-neutral-200 bg-white p-2 text-black"
+        className={cn(popoverSurfaceClass, "w-56 p-2")}
       >
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
@@ -154,13 +162,13 @@ function Chip({
       type="button"
       disabled={disabled}
       className={cn(
-        "h-7 rounded-md px-2 text-sm font-medium",
+        chipClass,
         disabled
           ? "cursor-not-allowed border border-neutral-200 bg-neutral-50 text-neutral-400"
           : selected
-            ? "bg-black text-white"
+            ? chipSelectedClass
             : inRange
-              ? "bg-neutral-200 text-black"
+              ? chipRangeClass
               : "border border-neutral-200 bg-white text-black hover:bg-neutral-100"
       )}
       aria-pressed={selected || inRange}

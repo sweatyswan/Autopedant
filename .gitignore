@@ -21,6 +21,11 @@
 # misc
 .DS_Store
 *.pem
+.py-xlsx/
+/public/import/
+/data/import/
+*.xlsx
+*.csv
 
 # debug
 npm-debug.log*

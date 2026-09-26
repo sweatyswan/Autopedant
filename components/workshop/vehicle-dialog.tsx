@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 
+import { Check, X } from "@keyline-icons/react"
+
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -30,8 +32,12 @@ import {
 } from "@/components/ui/select"
 import {
   fieldClass,
+  iconSize,
+  insetClass,
+  popoverSurfaceClass,
   primaryButtonClass,
   quietButtonClass,
+  typeDanger,
   typeError,
   typeLabel,
   typeTitle,
@@ -195,7 +201,7 @@ export function VehicleDialog({
     }
 
     close()
-    router.push(`/vozidlo/${result.id}`)
+    router.push(`/vozidlo?id=${result.id}`)
   }
 
   return (
@@ -208,7 +214,7 @@ export function VehicleDialog({
         onOpenChange(nextOpen)
       }}
     >
-      <DialogContent className="max-h-[calc(100%-2rem)] overflow-y-auto border border-neutral-200 bg-white text-black shadow-[0_1px_2px_rgb(0_0_0/0.04),0_1px_3px_rgb(0_0_0/0.04)] sm:max-w-lg">
+      <DialogContent className={`max-h-[calc(100%-2rem)] overflow-y-auto border border-neutral-200 text-black shadow-[0_1px_2px_rgb(0_0_0/0.04),0_1px_3px_rgb(0_0_0/0.04)] sm:max-w-lg ${insetClass}`}>
         <DialogHeader>
           <DialogTitle className={typeTitle}>Nové vozidlo</DialogTitle>
         </DialogHeader>
@@ -241,7 +247,7 @@ export function VehicleDialog({
                 placeholder="Napr. Martina Kováčová"
                 showClear
               />
-              <ComboboxContent className="border border-neutral-200 bg-white text-black">
+              <ComboboxContent className={popoverSurfaceClass}>
                 <ComboboxEmpty>Nič sa nenašlo.</ComboboxEmpty>
                 <ComboboxList>
                   {(item: CustomerChoice) => (
@@ -398,7 +404,7 @@ export function VehicleDialog({
                     {displacement ? formatDisplacement(Number(displacement)) : "Napr. 1,6 l"}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="border border-neutral-200 bg-white text-black">
+                <SelectContent className={popoverSurfaceClass}>
                   {engineDisplacements.map((option) => (
                     <SelectItem key={option.toFixed(1)} value={option.toFixed(1)}>
                       {formatDisplacement(option)}
@@ -424,7 +430,7 @@ export function VehicleDialog({
                 <SelectTrigger id="fuel" className={`${fieldClass} w-full`}>
                   <SelectValue placeholder="Napr. Nafta">{fuel || "Napr. Nafta"}</SelectValue>
                 </SelectTrigger>
-                <SelectContent className="border border-neutral-200 bg-white text-black">
+                <SelectContent className={popoverSurfaceClass}>
                   {fuelTypes.map((option) => (
                     <SelectItem key={option} value={option}>
                       {option}
@@ -437,12 +443,14 @@ export function VehicleDialog({
 
           {error ? <p className={typeError}>{error}</p> : null}
 
-          <DialogFooter className="border-neutral-200 bg-white sm:justify-end">
+          <DialogFooter className="border-neutral-200 sm:justify-end">
             <Button type="button" className={quietButtonClass} onClick={close}>
               Zrušiť
+              <X size={iconSize} />
             </Button>
             <Button type="submit" className={primaryButtonClass}>
               Uložiť vozidlo
+              <Check size={iconSize} />
             </Button>
           </DialogFooter>
         </form>
@@ -453,7 +461,7 @@ export function VehicleDialog({
 
 function RequiredMark() {
   return (
-    <span className="text-red-700" aria-hidden>
+    <span className={typeDanger} aria-hidden>
       {" *"}
     </span>
   )
