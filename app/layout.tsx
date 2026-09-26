@@ -1,15 +1,20 @@
-import { Geist, Geist_Mono, Inter } from "next/font/google"
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { cn } from "@/lib/utils";
+import { WorkshopProvider } from "@/lib/workshop-context"
+import { cn } from "@/lib/utils"
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'})
-
-const fontMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
+const inter = Inter({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-sans",
 })
+
+export const metadata: Metadata = {
+  title: "Autopedant | Prehľad servisovaných vozidiel",
+  description: "Servisná evidencia dielne. Vyhľadávanie podľa EČV a VIN, práca a zisk z dielov.",
+}
 
 export default function RootLayout({
   children,
@@ -18,12 +23,14 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="sk"
       suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, "font-sans", inter.variable)}
+      className={cn(inter.variable)}
     >
-      <body>
-        <ThemeProvider>{children}</ThemeProvider>
+      <body className="min-h-svh bg-[#F4F6F8] font-sans text-black antialiased print:bg-white">
+        <ThemeProvider>
+          <WorkshopProvider>{children}</WorkshopProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

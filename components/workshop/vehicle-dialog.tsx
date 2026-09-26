@@ -1,0 +1,460 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  fieldClass,
+  primaryButtonClass,
+  quietButtonClass,
+  typeError,
+  typeLabel,
+  typeTitle,
+} from "@/components/workshop/styles"
+import { formatDisplacement, formatPlate, isISODate, normalizeName, parseDisplacement, todayISO } from "@/lib/format"
+import { engineDisplacements, fuelTypes, type FuelType } from "@/lib/types"
+import { useWorkshop } from "@/lib/workshop-context"
+
+const newCustomerValue = "new"
+
+type CustomerChoice = {
+  id: string
+  name: string
+}
+
+const newCustomer: CustomerChoice = {
+  id: newCustomerValue,
+  name: "Nový zákazník",
+}
+
+export function VehicleDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const router = useRouter()
+  const { customers, addVehicle } = useWorkshop()
+  const [customerId, setCustomerId] = useState(newCustomerValue)
+  const [name, setName] = useState("")
+  const [phone, setPhone] = useState("")
+  const [email, setEmail] = useState("")
+  const [plate, setPlate] = useState("")
+  const [vin, setVin] = useState("")
+  const [makeModel, setMakeModel] = useState("")
+  const [year, setYear] = useState("")
+  const [firstRegistrationDate, setFirstRegistrationDate] = useState("")
+  const [displacement, setDisplacement] = useState("")
+  const [fuel, setFuel] = useState<FuelType | "">("")
+  const [error, setError] = useState("")
+  const customerChoices: CustomerChoice[] = [
+    newCustomer,
+    ...customers.map((customer) => ({ id: customer.id, name: customer.name })),
+  ]
+  const selectedCustomer =
+    customerChoices.find((choice) => choice.id === customerId) ?? newCustomer
+
+  function reset() {
+    setCustomerId(newCustomerValue)
+    setName("")
+    setPhone("")
+    setEmail("")
+    setPlate("")
+    setVin("")
+    setMakeModel("")
+    setYear("")
+    setFirstRegistrationDate("")
+    setDisplacement("")
+    setFuel("")
+    setError("")
+  }
+
+  function applyCustomer(choice: CustomerChoice) {
+    setCustomerId(choice.id)
+
+    if (choice.id === newCustomerValue) {
+      return
+    }
+
+    const customer = customers.find((item) => item.id === choice.id)
+    if (!customer) {
+      return
+    }
+
+    setName((current) => (current.trim() ? current : customer.name))
+    setPhone((current) => (current.trim() ? current : customer.phone))
+    setEmail((current) => (current.trim() ? current : customer.email ?? ""))
+  }
+
+  function close() {
+    reset()
+    onOpenChange(false)
+  }
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault()
+    const isNewCustomer = customerId === newCustomerValue
+    const parsedYear = Number(year)
+    const currentYear = new Date().getFullYear()
+
+    const customerName =
+      name.trim() ||
+      (!isNewCustomer
+        ? (customers.find((customer) => customer.id === customerId)?.name ?? "")
+        : "")
+
+    if (customerName.length === 0) {
+      setError("Zadajte meno zákazníka.")
+      return
+    }
+
+    if (phone.trim().length === 0) {
+      setError("Zadajte telefón.")
+      return
+    }
+
+    if (email.trim() && !email.includes("@")) {
+      setError("E-mail nemá platný tvar.")
+      return
+    }
+
+    if (plate.trim().length === 0) {
+      setError("Zadajte EČV.")
+      return
+    }
+
+    if (makeModel.trim().length === 0) {
+      setError("Zadajte značku a model.")
+      return
+    }
+
+    if (!Number.isInteger(parsedYear) || parsedYear < 1980 || parsedYear > currentYear + 1) {
+      setError("Zadajte rok výroby.")
+      return
+    }
+
+    if (!isISODate(firstRegistrationDate) || firstRegistrationDate > todayISO()) {
+      setError("Zadajte dátum prvej evidencie.")
+      return
+    }
+
+    const parsedDisplacement = parseDisplacement(displacement)
+    if (parsedDisplacement === null) {
+      setError("Vyberte objem motora.")
+      return
+    }
+
+    if (!fuel) {
+      setError("Zadajte palivo.")
+      return
+    }
+
+    const result = addVehicle({
+      customerId: isNewCustomer ? null : customerId,
+      customerName,
+      phone,
+      email,
+      licensePlate: formatPlate(plate),
+      vin,
+      makeModel,
+      year: parsedYear,
+      firstRegistrationDate,
+      engineDisplacement: parsedDisplacement,
+      fuel,
+    })
+
+    if (!result.ok) {
+      setError(result.message)
+      return
+    }
+
+    close()
+    router.push(`/vozidlo/${result.id}`)
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          reset()
+        }
+        onOpenChange(nextOpen)
+      }}
+    >
+      <DialogContent className="max-h-[calc(100%-2rem)] overflow-y-auto border border-neutral-200 bg-white text-black shadow-[0_1px_2px_rgb(0_0_0/0.04),0_1px_3px_rgb(0_0_0/0.04)] sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className={typeTitle}>Nové vozidlo</DialogTitle>
+        </DialogHeader>
+        <form className="flex flex-col gap-4" onSubmit={submit}>
+          <div className="flex flex-col gap-2">
+            <Label className={typeLabel} htmlFor="customer">
+              Zákazník
+            </Label>
+            <Combobox
+              items={customerChoices}
+              value={selectedCustomer}
+              onValueChange={(next) => {
+                applyCustomer(next ?? newCustomer)
+              }}
+              itemToStringLabel={(choice) => choice.name}
+              isItemEqualToValue={(left, right) => left.id === right.id}
+              filter={(item, query) => {
+                const needle = normalizeName(query)
+                if (!needle) {
+                  return true
+                }
+
+                return normalizeName(item.name).includes(needle)
+              }}
+              autoHighlight
+            >
+              <ComboboxInput
+                id="customer"
+                className={`${fieldClass} w-full`}
+                placeholder="Napr. Martina Kováčová"
+                showClear
+              />
+              <ComboboxContent className="border border-neutral-200 bg-white text-black">
+                <ComboboxEmpty>Nič sa nenašlo.</ComboboxEmpty>
+                <ComboboxList>
+                  {(item: CustomerChoice) => (
+                    <ComboboxItem key={item.id} value={item}>
+                      {item.name}
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label className={typeLabel} htmlFor="customer-name">
+              Meno
+            </Label>
+            <Input
+              id="customer-name"
+              className={fieldClass}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Napr. Martina Kováčová"
+              autoComplete="name"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label className={typeLabel} htmlFor="customer-phone">
+              Telefón
+              <RequiredMark />
+            </Label>
+            <Input
+              id="customer-phone"
+              className={fieldClass}
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              placeholder="Napr. +421 908 331 447"
+              autoComplete="tel"
+              required
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label className={typeLabel} htmlFor="customer-email">
+              E-mail
+            </Label>
+            <Input
+              id="customer-email"
+              className={fieldClass}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="Napr. martina.kovacova@example.com"
+              autoComplete="email"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="flex flex-col gap-2">
+              <Label className={typeLabel} htmlFor="plate">
+                EČV
+                <RequiredMark />
+              </Label>
+              <Input
+                id="plate"
+                className={`${fieldClass} uppercase tabular-nums`}
+                value={plate}
+                onChange={(event) => setPlate(formatPlate(event.target.value))}
+                placeholder="Napr. BA123XY"
+                autoComplete="off"
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label className={typeLabel} htmlFor="year">
+                Rok
+              </Label>
+              <Input
+                id="year"
+                className={`${fieldClass} text-right tabular-nums`}
+                value={year}
+                onChange={(event) => setYear(event.target.value)}
+                placeholder="Napr. 2018"
+                inputMode="numeric"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label className={typeLabel} htmlFor="first-registration">
+                Prvá evidencia
+                <RequiredMark />
+              </Label>
+              <Input
+                id="first-registration"
+                type="date"
+                className={fieldClass}
+                value={firstRegistrationDate}
+                onChange={(event) => setFirstRegistrationDate(event.target.value)}
+                max={todayISO()}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label className={typeLabel} htmlFor="vin">
+              VIN
+            </Label>
+            <Input
+              id="vin"
+              className={`${fieldClass} uppercase tabular-nums`}
+              value={vin}
+              onChange={(event) => setVin(event.target.value.toUpperCase())}
+              placeholder="Napr. TMBJG7NE5J0123456"
+              autoComplete="off"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label className={typeLabel} htmlFor="make-model">
+              Značka a model
+              <RequiredMark />
+            </Label>
+            <Input
+              id="make-model"
+              className={fieldClass}
+              value={makeModel}
+              onChange={(event) => setMakeModel(event.target.value)}
+              placeholder="Napr. Škoda Octavia"
+              required
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label className={typeLabel} htmlFor="displacement">
+                Objem motora
+                <RequiredMark />
+              </Label>
+              <Select
+                value={displacement || null}
+                onValueChange={(value) => {
+                  if (typeof value !== "string") {
+                    return
+                  }
+
+                  const parsed = parseDisplacement(value)
+                  if (parsed !== null) {
+                    setDisplacement(parsed.toFixed(1))
+                  }
+                }}
+                required
+              >
+                <SelectTrigger id="displacement" className={`${fieldClass} w-full`}>
+                  <SelectValue placeholder="Napr. 1,6 l">
+                    {displacement ? formatDisplacement(Number(displacement)) : "Napr. 1,6 l"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="border border-neutral-200 bg-white text-black">
+                  {engineDisplacements.map((option) => (
+                    <SelectItem key={option.toFixed(1)} value={option.toFixed(1)}>
+                      {formatDisplacement(option)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label className={typeLabel} htmlFor="fuel">
+                Palivo
+                <RequiredMark />
+              </Label>
+              <Select
+                value={fuel || null}
+                onValueChange={(value) => {
+                  if (fuelTypes.includes(value as FuelType)) {
+                    setFuel(value as FuelType)
+                  }
+                }}
+                required
+              >
+                <SelectTrigger id="fuel" className={`${fieldClass} w-full`}>
+                  <SelectValue placeholder="Napr. Nafta">{fuel || "Napr. Nafta"}</SelectValue>
+                </SelectTrigger>
+                <SelectContent className="border border-neutral-200 bg-white text-black">
+                  {fuelTypes.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {error ? <p className={typeError}>{error}</p> : null}
+
+          <DialogFooter className="border-neutral-200 bg-white sm:justify-end">
+            <Button type="button" className={quietButtonClass} onClick={close}>
+              Zrušiť
+            </Button>
+            <Button type="submit" className={primaryButtonClass}>
+              Uložiť vozidlo
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function RequiredMark() {
+  return (
+    <span className="text-red-700" aria-hidden>
+      {" *"}
+    </span>
+  )
+}
