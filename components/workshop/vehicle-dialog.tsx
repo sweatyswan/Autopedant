@@ -364,7 +364,7 @@ export function VehicleDialog({
               </Label>
               <Input
                 id="plate"
-                className={`${fieldClass} uppercase tabular-nums`}
+                className={`${fieldClass} uppercase tabular-nums placeholder:normal-case`}
                 value={plate}
                 onChange={(event) => setPlate(formatPlate(event.target.value))}
                 placeholder="Napr. BA123XY"
@@ -378,7 +378,7 @@ export function VehicleDialog({
               </Label>
               <Input
                 id="year"
-                className={`${fieldClass} text-right tabular-nums`}
+                className={`${fieldClass} text-right tabular-nums placeholder:text-left`}
                 value={year}
                 onChange={(event) => setYear(event.target.value)}
                 placeholder="Napr. 2018"
@@ -408,7 +408,7 @@ export function VehicleDialog({
             </Label>
             <Input
               id="vin"
-              className={`${fieldClass} uppercase tabular-nums`}
+              className={`${fieldClass} uppercase tabular-nums placeholder:normal-case`}
               value={vin}
               onChange={(event) => setVin(event.target.value.toUpperCase())}
               placeholder="Napr. TMBJG7NE5J0123456"
