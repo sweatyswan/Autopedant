@@ -5,15 +5,15 @@ export const surfaceClass =
 
 export const insetClass = "bg-[#F8FCFE] print:bg-white"
 
-export const bandClass = "bg-[#b7deec] print:bg-white"
+export const bandClass = "bg-[#c9d6de] print:bg-white"
 
-export const rowHoverClass = "hover:bg-[#F2F8FB]"
+export const rowHoverClass = "hover:bg-[#edf1f4]"
 
-export const rowActiveClass = "bg-[#F2F8FB]"
+export const rowActiveClass = "bg-[#edf1f4]"
 
-export const rowOpenClass = "in-data-open:bg-[#c5e6f2] in-data-open:hover:bg-[#c5e6f2]"
+export const rowOpenClass = "in-data-open:bg-[#c9d6de] in-data-open:hover:bg-[#c9d6de]"
 
-export const rowPanelClass = "in-data-open:bg-[#e0f3fa] print:bg-transparent"
+export const rowPanelClass = "in-data-open:bg-[#e2e8ed] print:bg-transparent"
 
 export const popoverSurfaceClass = "border border-neutral-200 bg-white text-black"
 
@@ -30,7 +30,7 @@ export const primaryButtonClass =
   "border border-[#0F7AAB] bg-[#0F7AAB] text-sm font-semibold text-white hover:bg-[#0C6A94]"
 
 export const controlHoverClass =
-  "hover:border-[#0F7AAB] hover:bg-[#c5e6f2] hover:text-[#0A6288]"
+  "hover:border-[#0F7AAB] hover:bg-[#c5e6f2] hover:text-[#095A7C]"
 
 export const quietButtonClass =
   `border border-neutral-200 bg-white text-sm font-medium text-black ${controlHoverClass}`
@@ -39,7 +39,7 @@ export const chipClass = "h-7 rounded-md px-2 text-sm font-medium"
 
 export const chipSelectedClass = "bg-[#0F7AAB] text-white"
 
-export const chipRangeClass = "bg-[#159DD4]/15 text-[#0A6288]"
+export const chipRangeClass = "bg-[#159DD4]/15 text-[#095A7C]"
 
 export const iconSize = "1em"
 
@@ -63,7 +63,7 @@ export const typeMeta = "text-left text-sm font-normal text-neutral-600"
 
 export const typeInk = "text-black"
 export const typeDash = "text-neutral-600"
-export const typeAccent = "text-[#0A6288]"
+export const typeAccent = "text-[#095A7C]"
 export const typeDanger = "text-red-700"
 export const typeTabular = "tabular-nums"
 export const typeError = `${typeBody} font-semibold ${typeDanger}`

@@ -52,7 +52,7 @@ export default function OpenGraphImage() {
             alignItems: "center",
             gap: 16,
             fontSize: 24,
-            color: "#0A6288",
+            color: "#095A7C",
           }}
         >
           <div
