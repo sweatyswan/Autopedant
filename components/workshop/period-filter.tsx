@@ -8,6 +8,7 @@ import {
   chipClass,
   chipRangeClass,
   chipSelectedClass,
+  controlHoverClass,
   fieldClass,
   iconSize,
   popoverSurfaceClass,
@@ -44,6 +45,7 @@ export function PeriodFilter({
         }
         className={cn(
           fieldClass,
+          controlHoverClass,
           "inline-flex h-8 max-w-44 items-center gap-1 rounded-lg border px-2.5 text-left"
         )}
       >
@@ -169,7 +171,7 @@ function Chip({
             ? chipSelectedClass
             : inRange
               ? chipRangeClass
-              : "border border-neutral-200 bg-white text-black hover:bg-neutral-100"
+              : cn("border border-neutral-200 bg-white text-black", controlHoverClass)
       )}
       aria-pressed={selected || inRange}
       onClick={onClick}

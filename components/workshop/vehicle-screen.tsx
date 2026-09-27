@@ -42,6 +42,7 @@ import {
   useRecordChrome,
 } from "@/components/workshop/record-money"
 import {
+  canvasClass,
   iconSize,
   insetClass,
   primaryButtonClass,
@@ -96,7 +97,7 @@ export function VehicleScreen() {
 
   if (!vehicle || !customer) {
     return (
-      <div className="min-h-svh text-black">
+      <div className={cn("min-h-svh text-black", canvasClass)}>
         <AppHeader />
         <main className="mx-auto flex max-w-6xl flex-col gap-4 p-6">
           <p className={typeBody}>Vozidlo sa v evidencii nenašlo.</p>
@@ -124,7 +125,7 @@ export function VehicleScreen() {
   }
 
   return (
-    <div className="min-h-svh text-black">
+    <div className={cn("min-h-svh text-black", canvasClass)}>
       <AppHeader
         actions={
           <Button className={quietButtonClass} nativeButton={false} render={<Link href="/" />}>
@@ -633,7 +634,7 @@ function RecordDetails({
           <Switch
             checked={customerView}
             onCheckedChange={setCustomerView}
-            className="data-unchecked:border-neutral-300 data-unchecked:bg-neutral-300"
+              className="data-unchecked:border-[#8a8a8a] data-unchecked:bg-[#8a8a8a]"
           />
         </label>
         <Button type="button" className={quietButtonClass} disabled={savingPdf} onClick={saveVisitPdf}>

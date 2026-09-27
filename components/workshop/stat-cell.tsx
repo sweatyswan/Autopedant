@@ -26,9 +26,7 @@ export function StatCell({
   return (
     <div
       className={cn(
-        "flex flex-col gap-0.5 border-neutral-200 px-4 py-2",
-        "border-b border-r last:border-b-0 last:border-r-0",
-        "even:max-sm:border-r-0 sm:border-b-0 sm:last:border-r-0"
+        "flex flex-col gap-0.5 px-4 py-2"
       )}
     >
       <span className={typeCaption}>{label}</span>

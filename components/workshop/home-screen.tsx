@@ -19,6 +19,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { AppHeader } from "@/components/workshop/app-header"
 import {
+  canvasClass,
+  controlHoverClass,
   fieldClass,
   iconSize,
   popoverSurfaceClass,
@@ -98,7 +100,7 @@ export function HomeScreen() {
   }
 
   return (
-    <div className="min-h-svh text-black">
+    <div className={cn("min-h-svh text-black", canvasClass)}>
       <AppHeader
         actions={
           <Button
@@ -315,7 +317,11 @@ function SortMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className={cn(quietButtonClass, "inline-flex size-8 shrink-0 items-center justify-center rounded-lg")}
+        className={cn(
+          fieldClass,
+          controlHoverClass,
+          "inline-flex size-8 shrink-0 items-center justify-center rounded-lg border"
+        )}
         aria-label="Zoradiť"
         title="Zoradiť"
       >

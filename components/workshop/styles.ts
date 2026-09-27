@@ -1,42 +1,45 @@
-export const canvasClass = "bg-[#F4F6F8]"
+export const canvasClass = "bg-[#F4F7F9] print:bg-white"
 
 export const surfaceClass =
   "border border-neutral-200 bg-white text-black shadow-[0_1px_2px_rgb(0_0_0/0.04),0_1px_3px_rgb(0_0_0/0.04)] ring-0 print:shadow-none"
 
-export const insetClass = "bg-[#F7F8FA]"
+export const insetClass = "bg-[#F8FCFE] print:bg-white"
 
-export const bandClass = "bg-[#E8EBEE]"
+export const bandClass = "bg-[#b7deec] print:bg-white"
 
-export const rowHoverClass = "hover:bg-[#F4F6F8]"
+export const rowHoverClass = "hover:bg-[#F2F8FB]"
 
-export const rowActiveClass = "bg-[#F4F6F8]"
+export const rowActiveClass = "bg-[#F2F8FB]"
 
-export const rowOpenClass = "in-data-open:bg-[#E8EBEE] in-data-open:hover:bg-[#E8EBEE]"
+export const rowOpenClass = "in-data-open:bg-[#c5e6f2] in-data-open:hover:bg-[#c5e6f2]"
 
-export const rowPanelClass = "in-data-open:bg-[#EEF1F4]"
+export const rowPanelClass = "in-data-open:bg-[#e0f3fa] print:bg-transparent"
 
 export const popoverSurfaceClass = "border border-neutral-200 bg-white text-black"
 
 export const accentBarClass = "border-l-2 border-l-[#159DD4]"
 
 export const fieldClass =
-  "border-neutral-200 bg-white text-sm font-normal text-black shadow-none placeholder:text-neutral-400 data-placeholder:text-neutral-400"
+  "border-[#8a8a8a] bg-white text-sm font-normal text-black shadow-none placeholder:text-neutral-600 data-placeholder:text-neutral-600"
 
 export const fieldOnCardClass = `${fieldClass} ${insetClass}`
 
 export const selectPlaceholderClass = "data-placeholder:font-medium data-placeholder:text-neutral-700"
 
 export const primaryButtonClass =
-  "border border-[#159DD4] bg-[#159DD4] text-sm font-semibold text-white hover:bg-[#1288b8]"
+  "border border-[#0F7AAB] bg-[#0F7AAB] text-sm font-semibold text-white hover:bg-[#0C6A94]"
+
+export const controlHoverClass =
+  "hover:border-[#0F7AAB] hover:bg-[#c5e6f2] hover:text-[#0A6288]"
 
 export const quietButtonClass =
-  "border border-neutral-200 bg-white text-sm font-medium text-black hover:bg-neutral-100"
+  `border border-neutral-200 bg-white text-sm font-medium text-black ${controlHoverClass}`
 
 export const chipClass = "h-7 rounded-md px-2 text-sm font-medium"
 
-export const chipSelectedClass = "bg-[#159DD4] text-white"
+export const chipSelectedClass = "bg-[#0F7AAB] text-white"
 
-export const chipRangeClass = "bg-[#159DD4]/15 text-[#0B6E96]"
+export const chipRangeClass = "bg-[#159DD4]/15 text-[#0A6288]"
 
 export const iconSize = "1em"
 
@@ -59,8 +62,8 @@ export const typeCaption = "text-left text-xs font-medium text-neutral-600"
 export const typeMeta = "text-left text-sm font-normal text-neutral-600"
 
 export const typeInk = "text-black"
-export const typeDash = "text-neutral-400"
-export const typeAccent = "text-[#0B6E96]"
+export const typeDash = "text-neutral-600"
+export const typeAccent = "text-[#0A6288]"
 export const typeDanger = "text-red-700"
 export const typeTabular = "tabular-nums"
 export const typeError = `${typeBody} font-semibold ${typeDanger}`

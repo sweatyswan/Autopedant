@@ -14,7 +14,7 @@ export function HomeStats({
   totals: MoneyTotals
 }) {
   return (
-    <div className={cn("overflow-hidden rounded-lg border border-neutral-200", bandClass)}>
+    <div className={cn("overflow-hidden rounded-lg", bandClass)}>
       <div className="grid grid-cols-2 sm:grid-cols-5">
         <StatCell label="Vozidlá" value={String(vehicles)} />
         <StatCell label="Servisné zákroky" value={String(visits)} />
