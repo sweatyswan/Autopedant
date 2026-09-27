@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowDownNarrowWide, ArrowUpNarrowWide, Plus, X } from "@keyline-icons/react"
+import { ArrowDownNarrowWide, ArrowRight, ArrowUpNarrowWide, Pen, Plus, X } from "@keyline-icons/react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -35,6 +35,7 @@ import {
 } from "@/components/workshop/styles"
 import { HomeStats } from "@/components/workshop/home-stats"
 import { PeriodFilter } from "@/components/workshop/period-filter"
+import { historyActionClass, historyChevronClass } from "@/components/workshop/record-layout"
 import { VehicleDialog } from "@/components/workshop/vehicle-dialog"
 import { formatDate, formatKm, formatNextService, formatPlate, formatVehicleSpec } from "@/lib/format"
 import { sumTotals } from "@/lib/finance"
@@ -67,6 +68,9 @@ export function HomeScreen() {
   const [direction, setDirection] = useState<ListSortDirection>("desc")
   const [active, setActive] = useState(0)
   const [vehicleOpen, setVehicleOpen] = useState(false)
+  const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null)
+  const editingVehicle = vehicles.find((item) => item.id === editingVehicleId)
+  const editingCustomer = customers.find((item) => item.id === editingVehicle?.customerId)
 
   const years = useMemo(() => serviceYears(records), [records])
   const filtersActive =
@@ -97,7 +101,13 @@ export function HomeScreen() {
     <div className="min-h-svh text-black">
       <AppHeader
         actions={
-          <Button className={primaryButtonClass} onClick={() => setVehicleOpen(true)}>
+          <Button
+            className={primaryButtonClass}
+            onClick={() => {
+              setEditingVehicleId(null)
+              setVehicleOpen(true)
+            }}
+          >
             Nové vozidlo
             <Plus size={iconSize} />
           </Button>
@@ -193,11 +203,15 @@ export function HomeScreen() {
           </p>
         ) : (
           <div className={cn("overflow-hidden rounded-lg", surfaceClass)}>
-            <div className={cn("hidden border-b border-neutral-200 px-4 py-2 sm:grid sm:items-center", listGrid)}>
-              <div className={typeCaption}>Vozidlo</div>
-              <div className={typeCaption}>Zákazník</div>
-              <div className={typeCaption}>Posledný servis</div>
-              <div className={typeCaption}>Ďalší servis</div>
+            <div className="hidden border-b border-neutral-200 px-4 py-2 sm:flex sm:items-center sm:gap-3">
+              <div className={cn("min-w-0 flex-1 sm:grid sm:items-center", listGrid)}>
+                <div className={typeCaption}>Vozidlo</div>
+                <div className={typeCaption}>Zákazník</div>
+                <div className={typeCaption}>Posledný servis</div>
+                <div className={typeCaption}>Ďalší servis</div>
+              </div>
+              <div className={historyActionClass} />
+              <div className={historyChevronClass} />
             </div>
             {results.map((vehicle, index) => {
               const customer = customersById.get(vehicle.customerId)
@@ -209,14 +223,15 @@ export function HomeScreen() {
                 <div
                   key={vehicle.id}
                   className={cn(
-                    "border-b border-neutral-200 last:border-b-0",
+                    "flex items-center gap-3 border-b border-neutral-200 px-4 last:border-b-0",
+                    rowHoverClass,
                     index === active && rowActiveClass
                   )}
                   onMouseEnter={() => setActive(index)}
                 >
                   <Link
                     href={`/vozidlo?id=${vehicle.id}`}
-                    className={cn(listGrid, rowHoverClass, "p-4 text-black no-underline sm:items-center")}
+                    className={cn(listGrid, "min-w-0 flex-1 py-4 text-black no-underline sm:items-center")}
                   >
                     <div className="min-w-0 text-left">
                       <div className={`${typeCaption} sm:hidden`}>Vozidlo</div>
@@ -247,13 +262,41 @@ export function HomeScreen() {
                       </div>
                     </div>
                   </Link>
+                  <Button
+                    type="button"
+                    className={`${quietButtonClass} ${historyActionClass}`}
+                    onClick={() => {
+                      setEditingVehicleId(vehicle.id)
+                      setVehicleOpen(true)
+                    }}
+                  >
+                    Upraviť
+                    <Pen size={iconSize} />
+                  </Button>
+                  <Link
+                    href={`/vozidlo?id=${vehicle.id}`}
+                    aria-label="Otvoriť kartu vozidla"
+                    className={cn(historyChevronClass, "flex items-center justify-center text-black")}
+                  >
+                    <ArrowRight size={iconSize} />
+                  </Link>
                 </div>
               )
             })}
           </div>
         )}
       </main>
-      <VehicleDialog open={vehicleOpen} onOpenChange={setVehicleOpen} />
+      <VehicleDialog
+        open={vehicleOpen}
+        vehicle={editingVehicle}
+        customer={editingCustomer}
+        onOpenChange={(open) => {
+          setVehicleOpen(open)
+          if (!open) {
+            setEditingVehicleId(null)
+          }
+        }}
+      />
     </div>
   )
 }

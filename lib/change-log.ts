@@ -60,6 +60,44 @@ export function vehicleChangeDetail(customer: Customer, vehicle: Vehicle) {
   return [customer.name, plate || vehicle.makeModel].filter(Boolean).join(" · ")
 }
 
+export function vehicleChangeNote(
+  previous: Vehicle,
+  next: Vehicle,
+  previousCustomer?: Customer,
+  nextCustomer?: Customer
+) {
+  const notes: string[] = []
+  if (previous.licensePlate !== next.licensePlate) {
+    notes.push("EČV")
+  }
+  if (previous.vin !== next.vin) {
+    notes.push("VIN")
+  }
+  if (previous.makeModel !== next.makeModel) {
+    notes.push("model")
+  }
+  if (previous.year !== next.year) {
+    notes.push("rok")
+  }
+  if (previous.engineDisplacement !== next.engineDisplacement) {
+    notes.push("objem")
+  }
+  if (previous.fuel !== next.fuel) {
+    notes.push("palivo")
+  }
+  if (previous.firstRegistrationDate !== next.firstRegistrationDate) {
+    notes.push("prvá evidencia")
+  }
+  if (previous.customerId !== next.customerId || previousCustomer?.name !== nextCustomer?.name) {
+    notes.push("zákazník")
+  }
+  if (previousCustomer?.phone !== nextCustomer?.phone || previousCustomer?.email !== nextCustomer?.email) {
+    notes.push("kontakt")
+  }
+
+  return notes.join(", ")
+}
+
 export function recordChangeDetail(customer: Customer | undefined, vehicle: Vehicle | undefined, record: ServiceRecord) {
   const plate = vehicle ? formatPlate(vehicle.licensePlate) : ""
   return [customer?.name, plate || vehicle?.makeModel, formatDate(record.serviceDate)].filter(Boolean).join(" · ")

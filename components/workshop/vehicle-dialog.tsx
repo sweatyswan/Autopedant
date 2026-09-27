@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
 import { Check, X } from "@keyline-icons/react"
@@ -43,7 +43,7 @@ import {
   typeTitle,
 } from "@/components/workshop/styles"
 import { formatDisplacement, formatPlate, isISODate, normalizeName, parseDisplacement, todayISO } from "@/lib/format"
-import { engineDisplacements, fuelTypes, type FuelType } from "@/lib/types"
+import { engineDisplacements, fuelTypes, type Customer, type FuelType, type Vehicle } from "@/lib/types"
 import { useWorkshop } from "@/lib/workshop-context"
 
 const newCustomerValue = "new"
@@ -61,12 +61,17 @@ const newCustomer: CustomerChoice = {
 export function VehicleDialog({
   open,
   onOpenChange,
+  vehicle,
+  customer,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  vehicle?: Vehicle
+  customer?: Customer
 }) {
   const router = useRouter()
-  const { customers, addVehicle } = useWorkshop()
+  const { customers, addVehicle, updateVehicle } = useWorkshop()
+  const editing = Boolean(vehicle && customer)
   const [customerId, setCustomerId] = useState(newCustomerValue)
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
@@ -100,6 +105,30 @@ export function VehicleDialog({
     setFuel("")
     setError("")
   }
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    if (!vehicle || !customer) {
+      reset()
+      return
+    }
+
+    setCustomerId(customer.id)
+    setName(customer.name)
+    setPhone(customer.phone)
+    setEmail(customer.email ?? "")
+    setPlate(formatPlate(vehicle.licensePlate))
+    setVin(vehicle.vin)
+    setMakeModel(vehicle.makeModel)
+    setYear(vehicle.year ? String(vehicle.year) : "")
+    setFirstRegistrationDate(vehicle.firstRegistrationDate)
+    setDisplacement(vehicle.engineDisplacement ? vehicle.engineDisplacement.toFixed(1) : "")
+    setFuel(fuelTypes.includes(vehicle.fuel) ? vehicle.fuel : "")
+    setError("")
+  }, [customer, open, vehicle])
 
   function applyCustomer(choice: CustomerChoice) {
     setCustomerId(choice.id)
@@ -140,7 +169,7 @@ export function VehicleDialog({
       return
     }
 
-    if (phone.trim().length === 0) {
+    if (!editing && phone.trim().length === 0) {
       setError("Zadajte telefón.")
       return
     }
@@ -150,7 +179,7 @@ export function VehicleDialog({
       return
     }
 
-    if (plate.trim().length === 0) {
+    if (!editing && plate.trim().length === 0) {
       setError("Zadajte EČV.")
       return
     }
@@ -160,28 +189,38 @@ export function VehicleDialog({
       return
     }
 
-    if (!Number.isInteger(parsedYear) || parsedYear < 1980 || parsedYear > currentYear + 1) {
+    if (year.trim()) {
+      if (!Number.isInteger(parsedYear) || parsedYear < 1980 || parsedYear > currentYear + 1) {
+        setError("Zadajte rok výroby.")
+        return
+      }
+    } else if (!editing) {
       setError("Zadajte rok výroby.")
       return
     }
 
-    if (!isISODate(firstRegistrationDate) || firstRegistrationDate > todayISO()) {
+    if (firstRegistrationDate) {
+      if (!isISODate(firstRegistrationDate) || firstRegistrationDate > todayISO()) {
+        setError("Zadajte dátum prvej evidencie.")
+        return
+      }
+    } else if (!editing) {
       setError("Zadajte dátum prvej evidencie.")
       return
     }
 
-    const parsedDisplacement = parseDisplacement(displacement)
+    const parsedDisplacement = displacement.trim() ? parseDisplacement(displacement) : editing ? 0 : null
     if (parsedDisplacement === null) {
       setError("Vyberte objem motora.")
       return
     }
 
-    if (!fuel) {
+    if (!fuel && !editing) {
       setError("Zadajte palivo.")
       return
     }
 
-    const result = addVehicle({
+    const payload = {
       customerId: isNewCustomer ? null : customerId,
       customerName,
       phone,
@@ -189,11 +228,24 @@ export function VehicleDialog({
       licensePlate: formatPlate(plate),
       vin,
       makeModel,
-      year: parsedYear,
+      year: year.trim() ? parsedYear : 0,
       firstRegistrationDate,
       engineDisplacement: parsedDisplacement,
       fuel,
-    })
+    }
+
+    if (editing && vehicle) {
+      const result = updateVehicle(vehicle.id, payload)
+      if (!result.ok) {
+        setError(result.message)
+        return
+      }
+
+      close()
+      return
+    }
+
+    const result = addVehicle(payload)
 
     if (!result.ok) {
       setError(result.message)
@@ -216,7 +268,7 @@ export function VehicleDialog({
     >
       <DialogContent className={`max-h-[calc(100%-2rem)] overflow-y-auto border border-neutral-200 text-black shadow-[0_1px_2px_rgb(0_0_0/0.04),0_1px_3px_rgb(0_0_0/0.04)] sm:max-w-lg ${insetClass}`}>
         <DialogHeader>
-          <DialogTitle className={typeTitle}>Nové vozidlo</DialogTitle>
+          <DialogTitle className={typeTitle}>{editing ? "Upraviť vozidlo" : "Nové vozidlo"}</DialogTitle>
         </DialogHeader>
         <form className="flex flex-col gap-4" onSubmit={submit}>
           <div className="flex flex-col gap-2">
@@ -277,7 +329,7 @@ export function VehicleDialog({
           <div className="flex flex-col gap-2">
             <Label className={typeLabel} htmlFor="customer-phone">
               Telefón
-              <RequiredMark />
+              {editing ? null : <RequiredMark />}
             </Label>
             <Input
               id="customer-phone"
@@ -286,7 +338,7 @@ export function VehicleDialog({
               onChange={(event) => setPhone(event.target.value)}
               placeholder="Napr. +421 908 331 447"
               autoComplete="tel"
-              required
+              required={!editing}
             />
           </div>
 
@@ -308,7 +360,7 @@ export function VehicleDialog({
             <div className="flex flex-col gap-2">
               <Label className={typeLabel} htmlFor="plate">
                 EČV
-                <RequiredMark />
+                {editing ? null : <RequiredMark />}
               </Label>
               <Input
                 id="plate"
@@ -317,7 +369,7 @@ export function VehicleDialog({
                 onChange={(event) => setPlate(formatPlate(event.target.value))}
                 placeholder="Napr. BA123XY"
                 autoComplete="off"
-                required
+                required={!editing}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -336,7 +388,7 @@ export function VehicleDialog({
             <div className="flex flex-col gap-2">
               <Label className={typeLabel} htmlFor="first-registration">
                 Prvá evidencia
-                <RequiredMark />
+                {editing ? null : <RequiredMark />}
               </Label>
               <Input
                 id="first-registration"
@@ -345,7 +397,7 @@ export function VehicleDialog({
                 value={firstRegistrationDate}
                 onChange={(event) => setFirstRegistrationDate(event.target.value)}
                 max={todayISO()}
-                required
+                required={!editing}
               />
             </div>
           </div>
@@ -383,7 +435,7 @@ export function VehicleDialog({
             <div className="flex flex-col gap-2">
               <Label className={typeLabel} htmlFor="displacement">
                 Objem motora
-                <RequiredMark />
+                {editing ? null : <RequiredMark />}
               </Label>
               <Select
                 value={displacement || null}
@@ -397,7 +449,7 @@ export function VehicleDialog({
                     setDisplacement(parsed.toFixed(1))
                   }
                 }}
-                required
+                required={!editing}
               >
                 <SelectTrigger id="displacement" className={`${fieldClass} w-full`}>
                   <SelectValue placeholder="Napr. 1,6 l">
@@ -416,7 +468,7 @@ export function VehicleDialog({
             <div className="flex flex-col gap-2">
               <Label className={typeLabel} htmlFor="fuel">
                 Palivo
-                <RequiredMark />
+                {editing ? null : <RequiredMark />}
               </Label>
               <Select
                 value={fuel || null}
@@ -425,7 +477,7 @@ export function VehicleDialog({
                     setFuel(value as FuelType)
                   }
                 }}
-                required
+                required={!editing}
               >
                 <SelectTrigger id="fuel" className={`${fieldClass} w-full`}>
                   <SelectValue placeholder="Napr. Nafta">{fuel || "Napr. Nafta"}</SelectValue>

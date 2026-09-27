@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { ActionBadge } from "@/components/workshop/action-badge"
 import { AppHeader } from "@/components/workshop/app-header"
+import { VehicleDialog } from "@/components/workshop/vehicle-dialog"
 import { NEW_RECORD_ID, RecordEditor, type RecordDraftPreview } from "@/components/workshop/record-editor"
 import {
   historyActionClass,
@@ -82,6 +83,7 @@ export function VehicleScreen() {
   const [draftPreview, setDraftPreview] = useState<RecordDraftPreview | null>(null)
   const [customerFacing, setCustomerFacing] = useState(0)
   const [savingHistory, setSavingHistory] = useState(false)
+  const [vehicleOpen, setVehicleOpen] = useState(false)
   const hideMoney = customerFacing > 0
   const bumpCustomerFacing = useCallback((on: boolean) => {
     setCustomerFacing((count) => count + (on ? 1 : -1))
@@ -140,7 +142,8 @@ export function VehicleScreen() {
               <div className={typeBody}>{formatVehicleSpec(vehicle)}</div>
               <div className={cn(typeMeta, "tabular-nums", !vehicle.vin && typeDash)}>{vehicle.vin || "–"}</div>
             </div>
-            <div className="min-w-0 text-left">
+            <div className="flex min-w-0 items-start justify-between gap-4 text-left">
+              <div className="min-w-0">
               <div className={typeCaption}>Zákazník</div>
               <div className={cn(typeTitle, !customer.name && typeDash)}>{customer.name || "–"}</div>
               {customer.phone ? (
@@ -151,6 +154,15 @@ export function VehicleScreen() {
                 <div className={cn(typeMeta, typeDash)}>–</div>
               )}
               <div className={cn(typeMeta, !customer.email && typeDash)}>{customer.email || "–"}</div>
+              </div>
+              <Button
+                type="button"
+                className={cn(quietButtonClass, "print:hidden")}
+                onClick={() => setVehicleOpen(true)}
+              >
+                Upraviť
+                <Pen size={iconSize} />
+              </Button>
             </div>
           </div>
           <div className={cn(factsGrid, "mt-4 border-t border-neutral-200 pt-4")}>
@@ -339,6 +351,7 @@ export function VehicleScreen() {
           )}
         </div>
       </main>
+      <VehicleDialog open={vehicleOpen} vehicle={vehicle} customer={customer} onOpenChange={setVehicleOpen} />
     </div>
   )
 }

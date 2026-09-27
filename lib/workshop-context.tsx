@@ -19,6 +19,7 @@ import {
   recordChangeDetail,
   recordChangeNote,
   vehicleChangeDetail,
+  vehicleChangeNote,
   writeLocalChanges,
   type ChangeEvent,
 } from "@/lib/change-log"
@@ -53,7 +54,7 @@ type NewVehicleInput = {
   year: number
   firstRegistrationDate: string
   engineDisplacement: number
-  fuel: FuelType
+  fuel: FuelType | ""
 }
 
 type WorkshopContextValue = {
@@ -64,6 +65,7 @@ type WorkshopContextValue = {
   changes: ChangeEvent[]
   cloudError: string
   addVehicle: (input: NewVehicleInput) => { ok: true; id: string } | { ok: false; message: string }
+  updateVehicle: (vehicleId: string, input: NewVehicleInput) => { ok: true } | { ok: false; message: string }
   addRecord: (record: ServiceRecord) => void
   updateRecord: (record: ServiceRecord) => void
   deleteRecord: (recordId: string) => void
@@ -362,6 +364,10 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
           phone: input.phone.trim(),
           email: input.email?.trim() || undefined,
         }
+    if (!input.fuel) {
+      return { ok: false as const, message: "Zadajte palivo." }
+    }
+
     const vehicle: Vehicle = {
       id: vehicleId,
       licensePlate: plate,
@@ -391,6 +397,70 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
     )
 
     return { ok: true as const, id: vehicleId }
+  }, [persistVehicle, rememberChange])
+
+  const updateVehicle = useCallback((vehicleId: string, input: NewVehicleInput) => {
+    const existing = dataRef.current.vehicles.find((item) => item.id === vehicleId)
+    if (!existing) {
+      return { ok: false as const, message: "Vozidlo sa v evidencii nenašlo." }
+    }
+
+    const plate = formatPlate(input.licensePlate)
+    const plateKey = normalizeCode(plate)
+    const duplicate = dataRef.current.vehicles.some(
+      (item) => item.id !== vehicleId && normalizeCode(item.licensePlate) === plateKey && plateKey
+    )
+
+    if (duplicate) {
+      return { ok: false as const, message: `Vozidlo s EČV ${plate} už je v evidencii.` }
+    }
+
+    const previousCustomer = dataRef.current.customers.find((item) => item.id === existing.customerId)
+    const customerId = input.customerId ?? crypto.randomUUID()
+    const customer: Customer = input.customerId
+      ? {
+          ...(dataRef.current.customers.find((item) => item.id === input.customerId) as Customer),
+          name: input.customerName.trim() || dataRef.current.customers.find((item) => item.id === input.customerId)?.name || "",
+          phone: input.phone.trim(),
+          email: input.email?.trim() || undefined,
+        }
+      : {
+          id: customerId,
+          name: input.customerName.trim(),
+          phone: input.phone.trim(),
+          email: input.email?.trim() || undefined,
+        }
+    const vehicle: Vehicle = {
+      id: vehicleId,
+      licensePlate: plate,
+      vin: input.vin.trim().toUpperCase(),
+      makeModel: input.makeModel.trim(),
+      year: input.year,
+      firstRegistrationDate: input.firstRegistrationDate,
+      engineDisplacement: input.engineDisplacement,
+      fuel: input.fuel || existing.fuel,
+      customerId,
+    }
+
+    setData((current) => ({
+      customers: input.customerId
+        ? current.customers.map((item) => (item.id === input.customerId ? customer : item))
+        : [...current.customers, customer],
+      vehicles: current.vehicles.map((item) => (item.id === vehicleId ? vehicle : item)),
+      records: current.records,
+    }))
+    persistVehicle(customer, vehicle)
+    rememberChange(
+      createChange({
+        title: "Upravené vozidlo",
+        detail: [vehicleChangeDetail(customer, vehicle), vehicleChangeNote(existing, vehicle, previousCustomer, customer)]
+          .filter(Boolean)
+          .join(" · "),
+        vehicleId,
+      })
+    )
+
+    return { ok: true as const }
   }, [persistVehicle, rememberChange])
 
   const addRecord = useCallback((record: ServiceRecord) => {
@@ -460,11 +530,12 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
       changes,
       cloudError,
       addVehicle,
+      updateVehicle,
       addRecord,
       updateRecord,
       deleteRecord,
     }),
-    [addRecord, addVehicle, changes, cloudError, deleteRecord, updateRecord, data, ready]
+    [addRecord, addVehicle, updateVehicle, changes, cloudError, deleteRecord, updateRecord, data, ready]
   )
 
   return (
