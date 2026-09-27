@@ -8,6 +8,7 @@ export type ChangeKind =
   | "vehicle.add"
   | "vehicle.update"
   | "vehicle.delete"
+  | "vehicle.merge"
   | "record.add"
   | "record.update"
   | "record.delete"
@@ -18,6 +19,7 @@ export type ChangeSnapshot = {
   records?: ServiceRecord[]
   vehicle?: Vehicle
   previousVehicle?: Vehicle
+  droppedVehicle?: Vehicle
   customer?: Customer
   previousCustomer?: Customer
   createdCustomer?: boolean

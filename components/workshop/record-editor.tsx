@@ -38,6 +38,7 @@ import {
   typeDanger,
   typeError,
 } from "@/components/workshop/styles"
+import { DateField } from "@/components/workshop/date-field"
 import { DiagnosticReportField } from "@/components/workshop/diagnostic-report"
 import { KmInput } from "@/components/workshop/km-input"
 import { formatAmountInput, formatKmInput, todayISO } from "@/lib/format"
@@ -155,19 +156,13 @@ export function RecordEditor({
       <div className="flex items-start gap-3">
         <div className={cn(historySplitClass, "flex-col sm:flex-row sm:items-stretch")}>
           <div className={cn(historyIdentityCols, "sm:items-stretch")}>
-            <div className="flex min-w-0 flex-col gap-1 text-left">
-              <Label className={typeCaption} htmlFor="inline-service-date">
-                Dátum
-              </Label>
-              <Input
-                id="inline-service-date"
-                type="date"
-                className={fieldClass}
-                value={serviceDate}
-                onChange={(event) => setServiceDate(event.target.value)}
-                autoFocus
-              />
-            </div>
+            <DateField
+              id="inline-service-date"
+              label="Dátum"
+              value={serviceDate}
+              onChange={setServiceDate}
+              autoFocus
+            />
             <div className="flex min-w-0 flex-col gap-1 text-left">
               <Label className={typeCaption} htmlFor="inline-mileage">
                 Stav tachometra
@@ -181,18 +176,13 @@ export function RecordEditor({
                 />
               </div>
             </div>
-            <div className="flex min-w-0 flex-col gap-1 text-left">
-              <Label className={typeCaption} htmlFor="inline-next-date">
-                Ďalší servis
-              </Label>
-              <Input
-                id="inline-next-date"
-                type="date"
-                className={fieldClass}
-                value={nextServiceDate}
-                onChange={(event) => setNextServiceDate(event.target.value)}
-              />
-            </div>
+            <DateField
+              id="inline-next-date"
+              label="Ďalší servis"
+              value={nextServiceDate}
+              onChange={setNextServiceDate}
+              allowClear
+            />
             <div className="flex min-w-0 flex-col gap-1 text-left">
               <Label className={cn(typeCaption, "invisible")} htmlFor="inline-next-mileage">
                 km

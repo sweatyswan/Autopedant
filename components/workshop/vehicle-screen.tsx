@@ -1,9 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { ArrowLeft, Bin, FileArrowDown, Pen, Plus } from "@keyline-icons/react"
+import { ArrowLeft, Bin, FileArrowDown, GitMerge, Pen, Plus } from "@keyline-icons/react"
 
 import {
   Accordion,
@@ -26,6 +26,7 @@ import { Switch } from "@/components/ui/switch"
 import { ActionBadge } from "@/components/workshop/action-badge"
 import { DiagnosticReportView } from "@/components/workshop/diagnostic-report"
 import { AppHeader } from "@/components/workshop/app-header"
+import { MergeVehicleDialog } from "@/components/workshop/merge-vehicle-dialog"
 import { VehicleDialog } from "@/components/workshop/vehicle-dialog"
 import { NEW_RECORD_ID, RecordEditor, type RecordDraftPreview } from "@/components/workshop/record-editor"
 import {
@@ -87,13 +88,10 @@ export function VehicleScreen() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [openRecords, setOpenRecords] = useState<string[]>([])
   const [draftPreview, setDraftPreview] = useState<RecordDraftPreview | null>(null)
-  const [customerFacing, setCustomerFacing] = useState(0)
+  const [customerView, setCustomerView] = useState(false)
   const [savingHistory, setSavingHistory] = useState(false)
   const [vehicleOpen, setVehicleOpen] = useState(false)
-  const hideMoney = customerFacing > 0
-  const bumpCustomerFacing = useCallback((on: boolean) => {
-    setCustomerFacing((count) => count + (on ? 1 : -1))
-  }, [])
+  const [mergeOpen, setMergeOpen] = useState(false)
   const vehicle = vehicles.find((item) => item.id === vehicleId)
   const customer = customers.find((item) => item.id === vehicle?.customerId)
   const history = records
@@ -162,14 +160,24 @@ export function VehicleScreen() {
               )}
               <div className={cn(typeMeta, !customer.email && typeDash)}>{customer.email || "–"}</div>
               </div>
-              <Button
-                type="button"
-                className={cn(quietButtonClass, "print:hidden")}
-                onClick={() => setVehicleOpen(true)}
-              >
-                Upraviť
-                <Pen size={iconSize} />
-              </Button>
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 print:hidden">
+                <Button
+                  type="button"
+                  className={quietButtonClass}
+                  onClick={() => setVehicleOpen(true)}
+                >
+                  Upraviť
+                  <Pen size={iconSize} />
+                </Button>
+                <Button
+                  type="button"
+                  className={quietButtonClass}
+                  onClick={() => setMergeOpen(true)}
+                >
+                  Spojiť kartu
+                  <GitMerge size={iconSize} />
+                </Button>
+              </div>
             </div>
           </div>
           <div className={cn(factsGrid, "mt-3 border-t border-neutral-200 pt-3")}>
@@ -206,29 +214,33 @@ export function VehicleScreen() {
             {editingId ? null : (
               <div className="flex flex-wrap items-center justify-end gap-3 print:hidden">
                 {history.length ? (
-                  <Button
-                    type="button"
-                    className={quietButtonClass}
-                    disabled={savingHistory}
-                    onClick={async () => {
-                      if (savingHistory) {
-                        return
-                      }
-                      setSavingHistory(true)
-                      try {
-                        await downloadHistoryPdf({
-                          records: history,
-                          vehicle,
-                          customer,
-                        })
-                      } finally {
-                        setSavingHistory(false)
-                      }
-                    }}
-                  >
-                    Uložiť históriu
-                    <FileArrowDown size={iconSize} />
-                  </Button>
+                  <>
+                    <CustomerViewSwitch checked={customerView} onCheckedChange={setCustomerView} />
+                    <Button
+                      type="button"
+                      className={quietButtonClass}
+                      disabled={savingHistory}
+                      onClick={async () => {
+                        if (savingHistory) {
+                          return
+                        }
+                        setSavingHistory(true)
+                        try {
+                          await downloadHistoryPdf({
+                            records: history,
+                            vehicle,
+                            customer,
+                            customerView,
+                          })
+                        } finally {
+                          setSavingHistory(false)
+                        }
+                      }}
+                    >
+                      Uložiť históriu
+                      <FileArrowDown size={iconSize} />
+                    </Button>
+                  </>
                 ) : null}
                 <Button className={primaryButtonClass} onClick={startNewRecord}>
                   Nový záznam
@@ -266,8 +278,8 @@ export function VehicleScreen() {
                   margin={draftPreview?.margin ?? 0}
                   billed={draftPreview?.billed ?? 0}
                   editing
-                  hideMoney={hideMoney}
-                  onCustomerFacing={bumpCustomerFacing}
+                  customerView={customerView}
+                  onCustomerViewChange={setCustomerView}
                 >
                   <RecordEditor
                     vehicleId={vehicle.id}
@@ -301,8 +313,8 @@ export function VehicleScreen() {
                     margin={preview?.margin ?? money.margin}
                     billed={preview?.billed ?? money.billed}
                     editing={editing}
-                    hideMoney={hideMoney}
-                    onCustomerFacing={bumpCustomerFacing}
+                    customerView={customerView}
+                    onCustomerViewChange={setCustomerView}
                     onEdit={() => {
                       setEditingId(record.id)
                       setDraftPreview(null)
@@ -342,6 +354,7 @@ export function VehicleScreen() {
         </div>
       </main>
       <VehicleDialog open={vehicleOpen} vehicle={vehicle} customer={customer} onOpenChange={setVehicleOpen} />
+      <MergeVehicleDialog open={mergeOpen} vehicle={vehicle} onOpenChange={setMergeOpen} />
     </div>
   )
 }
@@ -355,8 +368,8 @@ function HistoryItem({
   margin,
   billed,
   editing,
-  hideMoney,
-  onCustomerFacing,
+  customerView,
+  onCustomerViewChange,
   onEdit,
   onDelete,
   children,
@@ -369,13 +382,12 @@ function HistoryItem({
   margin: number
   billed: number
   editing?: boolean
-  hideMoney?: boolean
-  onCustomerFacing?: (on: boolean) => void
+  customerView: boolean
+  onCustomerViewChange: (value: boolean) => void
   onEdit?: () => void
   onDelete?: () => void
   children: ReactNode
 }) {
-  const [customerView, setCustomerView] = useState(false)
   const [moneySlot, setMoneySlot] = useState<HTMLElement | null>(null)
   const [desktop, setDesktop] = useState(false)
 
@@ -388,22 +400,13 @@ function HistoryItem({
   }, [])
 
   useEffect(() => {
-    if (editing) {
-      setCustomerView(false)
+    if (editing && customerView) {
+      onCustomerViewChange(false)
     }
-  }, [editing])
-
-  useEffect(() => {
-    if (!customerView) {
-      return
-    }
-
-    onCustomerFacing?.(true)
-    return () => onCustomerFacing?.(false)
-  }, [customerView, onCustomerFacing])
+  }, [editing, customerView, onCustomerViewChange])
 
   return (
-    <RecordChromeContext.Provider value={{ moneySlot, customerView, setCustomerView }}>
+    <RecordChromeContext.Provider value={{ moneySlot, customerView, setCustomerView: onCustomerViewChange }}>
       <AccordionItem
         value={id}
         id={`record-${id}`}
@@ -437,7 +440,7 @@ function HistoryItem({
                   </span>
                 </span>
               </span>
-              {hideMoney || customerView ? null : (
+              {customerView ? null : (
                 <span className="min-w-0 sm:flex-[2.55_1_0%]">
                   {editing ? null : (
                     <RecordMoneyDisplay labor={labor} margin={margin} billed={billed} />
@@ -664,14 +667,7 @@ function RecordDetails({
       )}
 
       <div className="flex flex-wrap items-center justify-end gap-3 print:hidden">
-        <label className="flex cursor-pointer items-center gap-2">
-          <span className={typeLabel}>Zobrazenie pre zákazníka</span>
-          <Switch
-            checked={customerView}
-            onCheckedChange={setCustomerView}
-              className="data-unchecked:border-[#8a8a8a] data-unchecked:bg-[#8a8a8a]"
-          />
-        </label>
+        <CustomerViewSwitch checked={customerView} onCheckedChange={setCustomerView} />
         <Button type="button" className={quietButtonClass} disabled={savingPdf} onClick={saveVisitPdf}>
           Uložiť PDF
           <FileArrowDown size={iconSize} />
@@ -710,6 +706,25 @@ function RecordTotals({
         <div className={cn(typeDisplay, typeTabular)}>{formatMoney(money.billed)}</div>
       </TotalCell>
     </div>
+  )
+}
+
+function CustomerViewSwitch({
+  checked,
+  onCheckedChange,
+}: {
+  checked: boolean
+  onCheckedChange: (value: boolean) => void
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2">
+      <span className={typeLabel}>Zobrazenie pre zákazníka</span>
+      <Switch
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        className="data-unchecked:border-[#8a8a8a] data-unchecked:bg-[#8a8a8a]"
+      />
+    </label>
   )
 }
 

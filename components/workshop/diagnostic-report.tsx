@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type DragEvent } from "react"
 import { Eye, Paperclip, X } from "@keyline-icons/react"
 
 import { Button } from "@/components/ui/button"
@@ -43,7 +43,49 @@ export function DiagnosticReportField({
   onChange: (patch: Partial<DraftItem>) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const dragDepth = useRef(0)
   const [error, setError] = useState("")
+  const [dragging, setDragging] = useState(false)
+
+  function setDragActive(next: boolean) {
+    dragDepth.current = next ? dragDepth.current + 1 : dragDepth.current - 1
+    if (dragDepth.current <= 0) {
+      dragDepth.current = 0
+      setDragging(false)
+      return
+    }
+
+    setDragging(true)
+  }
+
+  function handleDragEnter(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    event.stopPropagation()
+    setDragActive(true)
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    event.stopPropagation()
+    event.dataTransfer.dropEffect = "copy"
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    event.stopPropagation()
+    setDragActive(false)
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    event.stopPropagation()
+    dragDepth.current = 0
+    setDragging(false)
+    const file = event.dataTransfer.files.item(0)
+    if (file) {
+      void attach(file)
+    }
+  }
 
   async function attach(file: File) {
     const problem = diagnosticReportError(file)
@@ -77,10 +119,21 @@ export function DiagnosticReportField({
   }
 
   return (
-    <div className="mt-3 flex min-w-0 flex-col gap-1 text-left">
+    <div
+      className="mt-3 flex min-w-0 flex-col gap-1 text-left"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div className={typeCaption}>Diagnostický report</div>
       {item.diagnosticReportName ? (
-        <div className="flex min-w-0 items-center gap-2">
+        <div
+          className={cn(
+            "flex min-w-0 items-center gap-2 rounded-lg",
+            dragging && "bg-[#c5e6f2] ring-1 ring-[#0F7AAB]"
+          )}
+        >
           <DiagnosticReportPreviewButton
             report={{
               id: item.diagnosticReportId,
@@ -103,7 +156,13 @@ export function DiagnosticReportField({
       ) : (
         <Button
           type="button"
-          className={cn(quietButtonClass, fieldClass, "w-fit")}
+          className={cn(
+            quietButtonClass,
+            fieldClass,
+            "w-fit",
+            dragging && "border-[#0F7AAB] bg-[#c5e6f2] text-[#095A7C]"
+          )}
+          aria-label="Priložiť PDF alebo ho presuňte sem"
           onClick={() => inputRef.current?.click()}
         >
           Priložiť PDF

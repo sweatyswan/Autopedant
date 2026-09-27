@@ -29,8 +29,13 @@ function customerRedirect(id: string) {
 function modelKey(makeModel: string) {
   let key = normalizeName(makeModel)
   key = key
+    .replace(/\bvolksvage\b/g, "volkswagen")
+    .replace(/\bvolkswagen\b/g, "vw")
     .replace(/\bhyudai\b/g, "hyundai")
     .replace(/\bhyunda\b/g, "hyundai")
+    .replace(/\bnisan\b/g, "nissan")
+    .replace(/\bdacia duster\b/g, "duster")
+    .replace(/\bdacia daster\b/g, "duster")
     .replace(/\bdaster\b/g, "duster")
     .replace(/\bsegwai\b/g, "segway")
     .replace(/\btuscon\b/g, "tucson")
@@ -39,10 +44,13 @@ function modelKey(makeModel: string) {
     .replace(/\boctavia\b/g, "octavia")
     .replace(/\bcitroen c3\b/g, "c3")
     .replace(/\brenault clio\b/g, "clio")
+    .replace(/\brenault talia\b/g, "talia")
     .replace(/\bhonda crv\b/g, "crv")
     .replace(/\bhonda civic\b/g, "civic")
     .replace(/\bpeugeot 301\b/g, "p301")
     .replace(/\bp 301\b/g, "p301")
+    .replace(/\bpeugeot 3008\b/g, "p3008")
+    .replace(/\bp 3008\b/g, "p3008")
     .replace(/\bpeugeot 207\b/g, "p207")
     .replace(/\bp207\b/g, "p207")
     .replace(/\bhyundai i20\b/g, "i20")
@@ -50,6 +58,8 @@ function modelKey(makeModel: string) {
     .replace(/\bkia sportage\b/g, "sportage")
     .replace(/\bseat alhambra\b/g, "alhambra")
     .replace(/\bnissan x trail\b/g, "xtrail")
+    .replace(/\bfiat grande punto\b/g, "grande punto")
+    .replace(/\bfiat grande\b/g, "grande punto")
     .replace(/\bskoda\b/g, "skoda")
 
   return key.replace(/\s+/g, " ").trim()
@@ -88,6 +98,130 @@ function mergeVehiclePair(keep: Vehicle, drop: Vehicle): Vehicle {
   }
 }
 
+function vehicleVin(vehicle: Vehicle) {
+  return isUsefulVin(vehicle.vin) ? normalizeCode(vehicle.vin) : ""
+}
+
+function vehiclePlate(vehicle: Vehicle) {
+  return vehicle.licensePlate ? normalizeCode(vehicle.licensePlate) : ""
+}
+
+export function vehiclesConflict(left: Vehicle, right: Vehicle) {
+  const leftPlate = vehiclePlate(left)
+  const rightPlate = vehiclePlate(right)
+  if (leftPlate && rightPlate && leftPlate !== rightPlate) {
+    return true
+  }
+
+  const leftVin = vehicleVin(left)
+  const rightVin = vehicleVin(right)
+  return Boolean(leftVin && rightVin && leftVin !== rightVin)
+}
+
+function groupConflict(left: Vehicle[], right: Vehicle[]) {
+  return left.some((first) => right.some((second) => vehiclesConflict(first, second)))
+}
+
+export function fillVehicleFrom(keep: Vehicle, drop: Vehicle): Vehicle {
+  return {
+    ...keep,
+    licensePlate: keep.licensePlate || drop.licensePlate,
+    vin: isUsefulVin(keep.vin) ? keep.vin : drop.vin,
+    makeModel: keep.makeModel.trim() || drop.makeModel,
+    year: keep.year > 0 ? keep.year : drop.year,
+    firstRegistrationDate: keep.firstRegistrationDate || drop.firstRegistrationDate,
+    engineDisplacement: keep.engineDisplacement > 0 ? keep.engineDisplacement : drop.engineDisplacement,
+    fuel: keep.fuel || drop.fuel,
+  }
+}
+
+function groupMake(group: Vehicle[]) {
+  return group
+    .map((vehicle) => modelKey(vehicle.makeModel))
+    .sort((left, right) => right.length - left.length || left.localeCompare(right))[0]
+}
+
+function isPrefixMake(left: string, right: string) {
+  return left === right || left.startsWith(`${right} `) || right.startsWith(`${left} `)
+}
+
+function foldVehicles(bucket: Vehicle[]) {
+  let survivor = bucket[0]
+  for (const vehicle of bucket.slice(1)) {
+    const next = pickVehicle(survivor, vehicle)
+    const other = next.id === survivor.id ? vehicle : survivor
+    survivor = mergeVehiclePair(next, other)
+  }
+  return survivor
+}
+
+function collapseCustomerVehicles(vehicles: Vehicle[]) {
+  let groups = vehicles.map((vehicle) => [vehicle])
+
+  const mergeAt = (left: number, right: number) => {
+    groups[left] = [...groups[left], ...groups[right]]
+    groups.splice(right, 1)
+  }
+
+  const mergeWhere = (matches: (left: Vehicle[], right: Vehicle[]) => boolean) => {
+    for (let i = 0; i < groups.length; i += 1) {
+      for (let j = i + 1; j < groups.length; j += 1) {
+        if (groupConflict(groups[i], groups[j]) || !matches(groups[i], groups[j])) {
+          continue
+        }
+        mergeAt(i, j)
+        return true
+      }
+    }
+    return false
+  }
+
+  while (
+    mergeWhere((left, right) => {
+      const leftVin = left.map(vehicleVin).find(Boolean)
+      const rightVin = right.map(vehicleVin).find(Boolean)
+      return Boolean(leftVin && leftVin === rightVin)
+    })
+  ) {
+    /* same VIN */
+  }
+
+  while (
+    mergeWhere((left, right) => {
+      const leftPlate = left.map(vehiclePlate).find(Boolean)
+      const rightPlate = right.map(vehiclePlate).find(Boolean)
+      return Boolean(leftPlate && leftPlate === rightPlate)
+    })
+  ) {
+    /* same plate */
+  }
+
+  while (mergeWhere((left, right) => groupMake(left) === groupMake(right))) {
+    /* same normalized make */
+  }
+
+  while (
+    mergeWhere((left, right) => {
+      const leftMake = groupMake(left)
+      const rightMake = groupMake(right)
+      if (!isPrefixMake(leftMake, rightMake) || leftMake === rightMake) {
+        return false
+      }
+
+      const shorter = leftMake.length <= rightMake.length ? leftMake : rightMake
+      const family = groups.filter((group) => {
+        const make = groupMake(group)
+        return make === shorter || make.startsWith(`${shorter} `)
+      })
+      return family.length === 2
+    })
+  ) {
+    /* unambiguous shorter make, e.g. VW → VW Passat */
+  }
+
+  return groups
+}
+
 function collapseVehicles(vehicles: Vehicle[], records: ServiceRecord[]) {
   const byCustomer = new Map<string, Vehicle[]>()
   for (const vehicle of vehicles) {
@@ -100,48 +234,8 @@ function collapseVehicles(vehicles: Vehicle[], records: ServiceRecord[]) {
   const nextVehicles: Vehicle[] = []
 
   for (const group of byCustomer.values()) {
-    const buckets = new Map<string, Vehicle[]>()
-
-    for (const vehicle of group) {
-      const vin = isUsefulVin(vehicle.vin) ? `vin:${normalizeCode(vehicle.vin)}` : ""
-      const plate = vehicle.licensePlate ? `plate:${normalizeCode(vehicle.licensePlate)}` : ""
-      const key = vin || plate || `make:${modelKey(vehicle.makeModel)}`
-      const bucket = buckets.get(key) ?? []
-      bucket.push(vehicle)
-      buckets.set(key, bucket)
-    }
-
-    const byMake = new Map<string, string[]>()
-    for (const key of buckets.keys()) {
-      const sample = buckets.get(key)?.[0]
-      if (!sample) {
-        continue
-      }
-      const make = modelKey(sample.makeModel)
-      const keys = byMake.get(make) ?? []
-      keys.push(key)
-      byMake.set(make, keys)
-    }
-
-    for (const keys of byMake.values()) {
-      const identified = keys.filter((key) => key.startsWith("vin:") || key.startsWith("plate:"))
-      const anonymous = keys.filter((key) => key.startsWith("make:"))
-      if (identified.length === 1 && anonymous.length) {
-        const target = identified[0]
-        for (const key of anonymous) {
-          buckets.set(target, [...(buckets.get(target) ?? []), ...(buckets.get(key) ?? [])])
-          buckets.delete(key)
-        }
-      }
-    }
-
-    for (const bucket of buckets.values()) {
-      let survivor = bucket[0]
-      for (const vehicle of bucket.slice(1)) {
-        const next = pickVehicle(survivor, vehicle)
-        const other = next.id === survivor.id ? vehicle : survivor
-        survivor = mergeVehiclePair(next, other)
-      }
+    for (const bucket of collapseCustomerVehicles(group)) {
+      const survivor = foldVehicles(bucket)
       for (const vehicle of bucket) {
         if (vehicle.id !== survivor.id) {
           redirect.set(vehicle.id, survivor.id)

@@ -30,7 +30,7 @@ import {
 } from "@/lib/change-log"
 import { formatPlate, isISODate, normalizeCode } from "@/lib/format"
 import { normalizeCategory } from "@/lib/service-catalog"
-import { addMissingRecords, mergeDuplicateCustomers, workshopIdentity } from "@/lib/customer-merge"
+import { addMissingRecords, fillVehicleFrom, mergeDuplicateCustomers, vehiclesConflict, workshopIdentity } from "@/lib/customer-merge"
 import { emptyWorkshop, stripDemoWorkshop } from "@/lib/seed"
 import { getSupabase } from "@/lib/supabase"
 import {
@@ -72,6 +72,10 @@ type WorkshopContextValue = {
   cloudError: string
   addVehicle: (input: NewVehicleInput) => { ok: true; id: string } | { ok: false; message: string }
   updateVehicle: (vehicleId: string, input: NewVehicleInput) => { ok: true } | { ok: false; message: string }
+  mergeVehicles: (
+    keepId: string,
+    dropId: string
+  ) => { ok: true } | { ok: false; message: string }
   addRecord: (record: ServiceRecord) => void
   updateRecord: (record: ServiceRecord) => void
   deleteRecord: (recordId: string) => void
@@ -503,6 +507,79 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
     return { ok: true as const }
   }, [persistVehicle, rememberChange])
 
+  const mergeVehicles = useCallback((keepId: string, dropId: string) => {
+    if (keepId === dropId) {
+      return { ok: false as const, message: "Vyberte inú kartu." }
+    }
+
+    const keep = dataRef.current.vehicles.find((item) => item.id === keepId)
+    const drop = dataRef.current.vehicles.find((item) => item.id === dropId)
+    if (!keep || !drop) {
+      return { ok: false as const, message: "Vozidlo sa v evidencii nenašlo." }
+    }
+
+    if (vehiclesConflict(keep, drop)) {
+      const keepPlate = normalizeCode(keep.licensePlate)
+      const dropPlate = normalizeCode(drop.licensePlate)
+      if (keepPlate && dropPlate && keepPlate !== dropPlate) {
+        return { ok: false as const, message: "Karty majú rôzne EČV." }
+      }
+      return { ok: false as const, message: "Karty majú rôzne VIN." }
+    }
+
+    const keepCustomer = dataRef.current.customers.find((item) => item.id === keep.customerId)
+    const dropCustomer = dataRef.current.customers.find((item) => item.id === drop.customerId)
+    if (!keepCustomer) {
+      return { ok: false as const, message: "Vozidlo sa v evidencii nenašlo." }
+    }
+
+    const nextVehicle = fillVehicleFrom(keep, drop)
+    const moved = dataRef.current.records.filter((record) => record.vehicleId === drop.id)
+    const leftoverVehicles = dataRef.current.vehicles.filter((item) => item.id !== drop.id)
+    const dropCustomerOrphan =
+      Boolean(dropCustomer) &&
+      drop.customerId !== keep.customerId &&
+      !leftoverVehicles.some((item) => item.customerId === drop.customerId)
+
+    setData((current) => ({
+      customers: dropCustomerOrphan
+        ? current.customers.filter((item) => item.id !== drop.customerId)
+        : current.customers,
+      vehicles: leftoverVehicles.map((item) => (item.id === keep.id ? nextVehicle : item)),
+      records: current.records.map((record) =>
+        record.vehicleId === drop.id ? { ...record, vehicleId: keep.id } : record
+      ),
+    }))
+
+    persistVehicle(keepCustomer, nextVehicle)
+    for (const record of moved) {
+      persistRecord({ ...record, vehicleId: keep.id })
+    }
+    persistVehicleDelete(drop.id, dropCustomerOrphan ? drop.customerId : undefined)
+
+    rememberChange(
+      createChange({
+        title: "Spojené karty",
+        detail: [vehicleChangeDetail(keepCustomer, nextVehicle), vehicleChangeDetail(dropCustomer ?? keepCustomer, drop)]
+          .filter(Boolean)
+          .join(" ← "),
+        vehicleId: keep.id,
+        kind: "vehicle.merge",
+        snapshot: {
+          vehicle: snapshotOf(nextVehicle),
+          previousVehicle: snapshotOf(keep),
+          droppedVehicle: snapshotOf(drop),
+          customer: snapshotOf(keepCustomer),
+          previousCustomer: dropCustomer ? snapshotOf(dropCustomer) : undefined,
+          createdCustomer: dropCustomerOrphan,
+          records: moved.map((record) => snapshotOf(record)),
+        },
+      })
+    )
+
+    return { ok: true as const }
+  }, [persistRecord, persistVehicle, persistVehicleDelete, rememberChange])
+
   const addRecord = useCallback((record: ServiceRecord) => {
     const vehicle = dataRef.current.vehicles.find((item) => item.id === record.vehicleId)
     const customer = dataRef.current.customers.find((item) => item.id === vehicle?.customerId)
@@ -704,6 +781,51 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
         persist.push(() => persistRecordDelete(record.id))
       }
       persist.push(() => persistVehicleDelete(vehicle.id, dropCustomer ? vehicle.customerId : undefined))
+    } else if (change.kind === "vehicle.merge") {
+      const previousVehicle = snap.previousVehicle
+      const droppedVehicle = snap.droppedVehicle
+      const keepCustomer = snap.customer
+      const dropCustomer = snap.previousCustomer
+      const moved = snap.records ?? []
+      if (!previousVehicle || !droppedVehicle || !keepCustomer) {
+        return { ok: false as const, message: "Túto zmenu sa nedá vrátiť." }
+      }
+
+      next = {
+        customers:
+          snap.createdCustomer && dropCustomer && !current.customers.some((item) => item.id === dropCustomer.id)
+            ? [...current.customers, dropCustomer]
+            : current.customers,
+        vehicles: [
+          ...current.vehicles
+            .filter((item) => item.id !== droppedVehicle.id)
+            .map((item) => (item.id === previousVehicle.id ? previousVehicle : item)),
+          ...(current.vehicles.some((item) => item.id === droppedVehicle.id) ? [] : [droppedVehicle]),
+        ],
+        records: current.records.map((record) => {
+          const original = moved.find((item) => item.id === record.id)
+          return original ?? record
+        }),
+      }
+      inverseKind = "vehicle.merge"
+      inverse = {
+        vehicle: snapshotOf(previousVehicle),
+        previousVehicle: current.vehicles.find((item) => item.id === previousVehicle.id)
+          ? snapshotOf(current.vehicles.find((item) => item.id === previousVehicle.id) as Vehicle)
+          : undefined,
+        droppedVehicle: snapshotOf(droppedVehicle),
+        customer: snapshotOf(keepCustomer),
+        previousCustomer: dropCustomer ? snapshotOf(dropCustomer) : undefined,
+        createdCustomer: snap.createdCustomer,
+        records: moved.map((record) => snapshotOf({ ...record, vehicleId: previousVehicle.id })),
+      }
+      persist.push(() => persistVehicle(keepCustomer, previousVehicle))
+      if (dropCustomer) {
+        persist.push(() => persistVehicle(dropCustomer, droppedVehicle))
+      }
+      for (const record of moved) {
+        persist.push(() => persistRecord(record))
+      }
     } else if (change.kind === "vehicle.delete") {
       const vehicle = snap.vehicle
       const customer = snap.customer
@@ -767,12 +889,13 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
       cloudError,
       addVehicle,
       updateVehicle,
+      mergeVehicles,
       addRecord,
       updateRecord,
       deleteRecord,
       revertChange,
     }),
-    [addRecord, addVehicle, updateVehicle, changes, cloudError, deleteRecord, revertChange, updateRecord, data, ready]
+    [addRecord, addVehicle, mergeVehicles, updateVehicle, changes, cloudError, deleteRecord, revertChange, updateRecord, data, ready]
   )
 
   return (

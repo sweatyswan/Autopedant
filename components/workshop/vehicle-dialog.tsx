@@ -40,6 +40,7 @@ import {
   typeDanger,
   typeError,
   typeLabel,
+  typeMeta,
   typeTitle,
 } from "@/components/workshop/styles"
 import { formatDisplacement, formatPlate, normalizeName, parseDisplacement } from "@/lib/format"
@@ -51,11 +52,6 @@ const newCustomerValue = "new"
 type CustomerChoice = {
   id: string
   name: string
-}
-
-const newCustomer: CustomerChoice = {
-  id: newCustomerValue,
-  name: "Nový zákazník",
 }
 
 export function VehicleDialog({
@@ -83,12 +79,10 @@ export function VehicleDialog({
   const [displacement, setDisplacement] = useState("")
   const [fuel, setFuel] = useState<FuelType | "">("")
   const [error, setError] = useState("")
-  const customerChoices: CustomerChoice[] = [
-    newCustomer,
-    ...customers.map((customer) => ({ id: customer.id, name: customer.name })),
-  ]
+  const customerChoices: CustomerChoice[] = customers.map((item) => ({ id: item.id, name: item.name }))
+  const linkedCustomer = customerChoices.find((choice) => choice.id === customerId)
   const selectedCustomer =
-    customerChoices.find((choice) => choice.id === customerId) ?? newCustomer
+    linkedCustomer && normalizeName(linkedCustomer.name) === normalizeName(name) ? linkedCustomer : null
 
   function reset() {
     setCustomerId(newCustomerValue)
@@ -127,21 +121,35 @@ export function VehicleDialog({
     setError("")
   }, [customer, open, vehicle])
 
-  function applyCustomer(choice: CustomerChoice) {
+  function applyCustomer(choice: CustomerChoice | null) {
+    if (!choice) {
+      setCustomerId(newCustomerValue)
+      setName("")
+      return
+    }
+
+    const owner = customers.find((item) => item.id === choice.id)
     setCustomerId(choice.id)
-
-    if (choice.id === newCustomerValue) {
+    setName(choice.name)
+    if (!owner) {
       return
     }
 
-    const customer = customers.find((item) => item.id === choice.id)
-    if (!customer) {
+    setPhone(owner.phone)
+    setEmail(owner.email ?? "")
+  }
+
+  function onCustomerInput(next: string) {
+    const owner = customers.find((item) => item.id === customerId)
+    setName(next)
+
+    if (!owner || normalizeName(next) === normalizeName(owner.name)) {
       return
     }
 
-    setName((current) => (current.trim() ? current : customer.name))
-    setPhone((current) => (current.trim() ? current : customer.phone))
-    setEmail((current) => (current.trim() ? current : customer.email ?? ""))
+    setCustomerId(newCustomerValue)
+    setPhone((current) => (current === owner.phone ? "" : current))
+    setEmail((current) => (current === (owner.email ?? "") ? "" : current))
   }
 
   function close() {
@@ -151,15 +159,16 @@ export function VehicleDialog({
 
   function submit(event: React.FormEvent) {
     event.preventDefault()
-    const isNewCustomer = customerId === newCustomerValue
     const parsedYear = Number(year)
     const currentYear = new Date().getFullYear()
-
-    const customerName =
-      name.trim() ||
-      (!isNewCustomer
-        ? (customers.find((customer) => customer.id === customerId)?.name ?? "")
-        : "")
+    const customerName = name.trim()
+    const namedMatch = customers.filter((item) => normalizeName(item.name) === normalizeName(customerName))
+    const resolvedCustomerId =
+      customerId !== newCustomerValue
+        ? customerId
+        : namedMatch.length === 1
+          ? namedMatch[0].id
+          : null
 
     if (customerName.length === 0) {
       setError("Zadajte meno zákazníka.")
@@ -203,7 +212,7 @@ export function VehicleDialog({
     }
 
     const payload = {
-      customerId: isNewCustomer ? null : customerId,
+      customerId: resolvedCustomerId,
       customerName,
       phone,
       email,
@@ -260,8 +269,10 @@ export function VehicleDialog({
             <Combobox
               items={customerChoices}
               value={selectedCustomer}
+              inputValue={name}
+              onInputValueChange={onCustomerInput}
               onValueChange={(next) => {
-                applyCustomer(next ?? newCustomer)
+                applyCustomer(next)
               }}
               itemToStringLabel={(choice) => choice.name}
               isItemEqualToValue={(left, right) => left.id === right.id}
@@ -278,11 +289,11 @@ export function VehicleDialog({
               <ComboboxInput
                 id="customer"
                 className={`${fieldClass} w-full`}
-                placeholder="Napr. Martina Kováčová"
+                placeholder="Meno, alebo z evidencie"
                 showClear
               />
               <ComboboxContent className={popoverSurfaceClass}>
-                <ComboboxEmpty>Nič sa nenašlo.</ComboboxEmpty>
+                <ComboboxEmpty>Nový zákazník</ComboboxEmpty>
                 <ComboboxList>
                   {(item: CustomerChoice) => (
                     <ComboboxItem key={item.id} value={item}>
@@ -292,20 +303,9 @@ export function VehicleDialog({
                 </ComboboxList>
               </ComboboxContent>
             </Combobox>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label className={typeLabel} htmlFor="customer-name">
-              Meno
-            </Label>
-            <Input
-              id="customer-name"
-              className={fieldClass}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Napr. Martina Kováčová"
-              autoComplete="name"
-            />
+            {name.trim() ? (
+              <p className={typeMeta}>{selectedCustomer ? "Z evidencie" : "Nový zákazník"}</p>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-2">
