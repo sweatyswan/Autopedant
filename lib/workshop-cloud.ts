@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { ChangeEvent } from "@/lib/change-log"
+import { DIAGNOSTIC_REPORT_BUCKET, diagnosticReportPath, getDiagnosticReport } from "@/lib/diagnostic-report"
 import type { Customer, ServiceItem, ServiceRecord, Vehicle, WorkshopData } from "@/lib/types"
 
 type CustomerRow = {
@@ -47,7 +48,19 @@ type ItemRow = {
   purchase_price: number
   sell_price: number
   sort_index: number
+  diagnostic_scope?: string | null
+  diagnostic_unit?: string | null
+  diagnostic_note?: string | null
+  diagnostic_resolved?: boolean | null
+  diagnostic_report_id?: string | null
+  diagnostic_report_name?: string | null
+  diagnostic_report_path?: string | null
 }
+
+const itemColumns =
+  "id, record_id, category, action_type, part_name, part_brand, material_type, quantity, purchase_price, sell_price, sort_index"
+const itemColumnsDiagnostic = `${itemColumns}, diagnostic_scope, diagnostic_unit, diagnostic_note, diagnostic_resolved`
+const itemColumnsFull = `${itemColumnsDiagnostic}, diagnostic_report_id, diagnostic_report_name, diagnostic_report_path`
 
 function customerRow(userId: string, customer: Customer) {
   return {
@@ -104,7 +117,41 @@ function itemRows(userId: string, record: ServiceRecord) {
     purchase_price: item.purchasePrice,
     sell_price: item.sellPrice,
     sort_index: index,
+    diagnostic_scope: item.diagnosticScope ?? null,
+    diagnostic_unit: item.diagnosticUnit ?? null,
+    diagnostic_note: item.diagnosticNote ?? null,
+    diagnostic_resolved: item.actionType === "Diagnostika" ? Boolean(item.diagnosticResolved) : null,
+    diagnostic_report_id: item.diagnosticReportId ?? null,
+    diagnostic_report_name: item.diagnosticReportName ?? null,
+    diagnostic_report_path: item.diagnosticReportPath ?? null,
   }))
+}
+
+function missingDiagnosticColumn(message: string) {
+  return /diagnostic_/i.test(message)
+}
+
+function missingReportColumn(message: string) {
+  return /diagnostic_report_/i.test(message)
+}
+
+function withoutReportColumns<T extends Record<string, unknown>>(row: T) {
+  const { diagnostic_report_id, diagnostic_report_name, diagnostic_report_path, ...rest } = row
+  return rest
+}
+
+function withoutDiagnosticColumns<T extends Record<string, unknown>>(row: T) {
+  const {
+    diagnostic_scope,
+    diagnostic_unit,
+    diagnostic_note,
+    diagnostic_resolved,
+    diagnostic_report_id,
+    diagnostic_report_name,
+    diagnostic_report_path,
+    ...rest
+  } = row
+  return rest
 }
 
 function toCustomer(row: CustomerRow): Customer {
@@ -150,6 +197,8 @@ function toRecord(row: RecordRow, items: ServiceItem[]): ServiceRecord {
 }
 
 function toItem(row: ItemRow): ServiceItem {
+  const scope = row.diagnostic_scope === "komplexna" || row.diagnostic_scope === "jednotka" ? row.diagnostic_scope : undefined
+
   return {
     id: row.id,
     category: row.category,
@@ -160,7 +209,31 @@ function toItem(row: ItemRow): ServiceItem {
     quantity: row.quantity,
     purchasePrice: Number(row.purchase_price),
     sellPrice: Number(row.sell_price),
+    diagnosticScope: scope,
+    diagnosticUnit: row.diagnostic_unit || undefined,
+    diagnosticNote: row.diagnostic_note || undefined,
+    diagnosticResolved: typeof row.diagnostic_resolved === "boolean" ? row.diagnostic_resolved : undefined,
+    diagnosticReportId: row.diagnostic_report_id || undefined,
+    diagnosticReportName: row.diagnostic_report_name || undefined,
+    diagnosticReportPath: row.diagnostic_report_path || undefined,
   }
+}
+
+async function loadRecordItems(client: SupabaseClient) {
+  const full = await client.from("record_items").select(itemColumnsFull)
+  if (!full.error) {
+    return full
+  }
+
+  if (missingReportColumn(full.error.message)) {
+    return client.from("record_items").select(itemColumnsDiagnostic)
+  }
+
+  if (missingDiagnosticColumn(full.error.message)) {
+    return client.from("record_items").select(itemColumns)
+  }
+
+  return full
 }
 
 export async function loadWorkshop(client: SupabaseClient): Promise<WorkshopData> {
@@ -172,9 +245,7 @@ export async function loadWorkshop(client: SupabaseClient): Promise<WorkshopData
     client.from("records").select(
       "id, vehicle_id, service_date, mileage, labor_cost, material_earnings, billed_amount, mechanic_notes, next_service_date, next_service_mileage"
     ),
-    client.from("record_items").select(
-      "id, record_id, category, action_type, part_name, part_brand, material_type, quantity, purchase_price, sell_price, sort_index"
-    ),
+    loadRecordItems(client),
   ])
 
   const error = customers.error || vehicles.error || records.error || items.error
@@ -220,10 +291,7 @@ export async function pushWorkshop(client: SupabaseClient, userId: string, data:
 
     const items = data.records.flatMap((record) => itemRows(userId, record))
     if (items.length) {
-      const { error: itemError } = await client.from("record_items").upsert(items)
-      if (itemError) {
-        throw itemError
-      }
+      await writeRecordItems(client, items, "upsert")
     }
   }
 }
@@ -268,10 +336,79 @@ export async function saveRecord(client: SupabaseClient, userId: string, record:
     return
   }
 
-  const itemWrite = await client.from("record_items").insert(items)
-  if (itemWrite.error) {
-    throw itemWrite.error
+  await writeRecordItems(client, items, "insert")
+}
+
+async function writeRecordItems(
+  client: SupabaseClient,
+  items: ReturnType<typeof itemRows>,
+  mode: "insert" | "upsert"
+) {
+  const write = mode === "insert" ? client.from("record_items").insert(items) : client.from("record_items").upsert(items)
+  const first = await write
+  if (!first.error) {
+    return
   }
+
+  if (missingReportColumn(first.error.message)) {
+    const retry = mode === "insert"
+      ? await client.from("record_items").insert(items.map(withoutReportColumns))
+      : await client.from("record_items").upsert(items.map(withoutReportColumns))
+    if (!retry.error) {
+      return
+    }
+    if (missingDiagnosticColumn(retry.error.message)) {
+      const last = mode === "insert"
+        ? await client.from("record_items").insert(items.map(withoutDiagnosticColumns))
+        : await client.from("record_items").upsert(items.map(withoutDiagnosticColumns))
+      if (last.error) {
+        throw last.error
+      }
+      return
+    }
+    throw retry.error
+  }
+
+  if (missingDiagnosticColumn(first.error.message)) {
+    const retry = mode === "insert"
+      ? await client.from("record_items").insert(items.map(withoutDiagnosticColumns))
+      : await client.from("record_items").upsert(items.map(withoutDiagnosticColumns))
+    if (retry.error) {
+      throw retry.error
+    }
+    return
+  }
+
+  throw first.error
+}
+
+export async function uploadDiagnosticReports(client: SupabaseClient, userId: string, record: ServiceRecord) {
+  const items = await Promise.all(
+    record.items.map(async (item) => {
+      if (!item.diagnosticReportId || !item.diagnosticReportName) {
+        return item
+      }
+
+      const local = await getDiagnosticReport(item.diagnosticReportId)
+      if (!local) {
+        return item
+      }
+
+      const path = item.diagnosticReportPath || diagnosticReportPath(userId, item.diagnosticReportId)
+      const { error } = await client.storage.from(DIAGNOSTIC_REPORT_BUCKET).upload(path, local.blob, {
+        upsert: true,
+        contentType: "application/pdf",
+      })
+
+      if (error) {
+        return item
+      }
+
+      return { ...item, diagnosticReportPath: path }
+    })
+  )
+
+  return { ...record, items }
 }
 
 export async function purgeWorkshopIds(
@@ -295,37 +432,67 @@ export async function purgeWorkshopIds(
 }
 
 export async function loadChangeEvents(client: SupabaseClient): Promise<ChangeEvent[]> {
-  const { data, error } = await client
+  const full = await client
     .from("change_events")
-    .select("id, at, title, detail, vehicle_id")
+    .select("id, at, title, detail, vehicle_id, kind, reverted, payload")
     .order("at", { ascending: false })
     .limit(200)
 
-  if (error) {
-    if (/change_events|schema cache|does not exist/i.test(error.message)) {
+  const result = full.error
+    ? await client
+        .from("change_events")
+        .select("id, at, title, detail, vehicle_id")
+        .order("at", { ascending: false })
+        .limit(200)
+    : full
+
+  if (result.error) {
+    if (/change_events|schema cache|does not exist/i.test(result.error.message)) {
       return []
     }
-    throw error
+    throw result.error
   }
 
-  return (data ?? []).map((row) => ({
+  return (result.data ?? []).map((row) => ({
     id: row.id,
     at: row.at,
     title: row.title,
     detail: row.detail ?? "",
     vehicleId: row.vehicle_id || undefined,
+    kind: "kind" in row && typeof row.kind === "string" ? (row.kind as ChangeEvent["kind"]) : undefined,
+    reverted: "reverted" in row ? Boolean(row.reverted) : undefined,
+    snapshot: "payload" in row && row.payload && typeof row.payload === "object" ? row.payload : undefined,
   }))
 }
 
 export async function saveChangeEvent(client: SupabaseClient, userId: string, change: ChangeEvent) {
-  const { error } = await client.from("change_events").upsert({
+  const row = {
     id: change.id,
     user_id: userId,
     at: change.at,
     title: change.title,
     detail: change.detail,
     vehicle_id: change.vehicleId ?? null,
-  })
+    kind: change.kind ?? null,
+    reverted: Boolean(change.reverted),
+    payload: change.snapshot ?? null,
+  }
+  const { error } = await client.from("change_events").upsert(row)
+
+  if (error && /payload|kind|reverted|column/i.test(error.message)) {
+    const retry = await client.from("change_events").upsert({
+      id: change.id,
+      user_id: userId,
+      at: change.at,
+      title: change.title,
+      detail: change.detail,
+      vehicle_id: change.vehicleId ?? null,
+    })
+    if (retry.error && !/change_events|schema cache|does not exist/i.test(retry.error.message)) {
+      throw retry.error
+    }
+    return
+  }
 
   if (error && !/change_events|schema cache|does not exist/i.test(error.message)) {
     throw error

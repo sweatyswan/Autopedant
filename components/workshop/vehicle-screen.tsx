@@ -24,13 +24,16 @@ import {
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { ActionBadge } from "@/components/workshop/action-badge"
+import { DiagnosticReportView } from "@/components/workshop/diagnostic-report"
 import { AppHeader } from "@/components/workshop/app-header"
 import { VehicleDialog } from "@/components/workshop/vehicle-dialog"
 import { NEW_RECORD_ID, RecordEditor, type RecordDraftPreview } from "@/components/workshop/record-editor"
 import {
   historyActionClass,
   historyChevronClass,
+  diagnosticItemGrid,
   historyIdentityCols,
+  historyIdentityColsCustomer,
   historySplitClass,
   itemGrid,
   itemHeaderClass,
@@ -68,6 +71,7 @@ import { formatDate, formatKm, formatMoney, formatNextService, formatPlate, form
 import { recordTotals, type MoneyTotals } from "@/lib/finance"
 import { downloadHistoryPdf, downloadVisitPdf } from "@/lib/visit-pdf"
 import { latestOilRecord, latestOilUpcoming } from "@/lib/list-query"
+import { diagnosticScopeText, diagnosticStatusText, isDiagnosticAction } from "@/lib/service-catalog"
 import { serviceCategories, type Customer, type ServiceRecord, type Vehicle } from "@/lib/types"
 import { useWorkshop } from "@/lib/workshop-context"
 import { cn } from "@/lib/utils"
@@ -112,10 +116,11 @@ export function VehicleScreen() {
   }
 
   const lastVisit = history[0]
+  const firstVisit = history[history.length - 1]
   const lastOil = latestOilRecord(history)
   const nextOil = latestOilUpcoming(history)
-  const firstRegistration = vehicle.firstRegistrationDate
-    ? formatDate(vehicle.firstRegistrationDate)
+  const firstVisitStamp = firstVisit
+    ? `${formatDate(firstVisit.serviceDate)} · ${formatKm(firstVisit.mileage)}`
     : "–"
   const mileage = lastVisit ? formatKm(lastVisit.mileage) : "–"
 
@@ -184,8 +189,8 @@ export function VehicleScreen() {
             </div>
             <div className="min-w-0 text-left">
               <div className={typeCaption}>Prvá evidencia</div>
-              <div className={cn(typeMeta, typeTabular, firstRegistration === "–" && typeDash)}>
-                {firstRegistration}
+              <div className={cn(typeMeta, !firstVisit && typeDash)}>
+                {firstVisitStamp}
               </div>
             </div>
             <div className="min-w-0 text-left">
@@ -407,8 +412,7 @@ function HistoryItem({
       >
         <div
           className={cn(
-            "relative flex items-center px-4 print:hidden",
-            !editing && "h-[5.25rem] overflow-hidden",
+            "relative flex h-[5.25rem] items-center overflow-hidden px-4 print:hidden",
             rowHoverClass,
             rowOpenClass
           )}
@@ -418,7 +422,7 @@ function HistoryItem({
             className="w-full items-center justify-start gap-3 px-0 text-black hover:bg-transparent hover:no-underline **:data-[slot=accordion-trigger-icon]:ml-0"
           >
             <span className={cn(historySplitClass, "flex-col sm:flex-row sm:items-center")}>
-              <span className={historyIdentityCols}>
+              <span className={customerView ? historyIdentityColsCustomer : historyIdentityCols}>
                 <span className="min-w-0 text-left">
                   <span className={`${typeCaption} sm:hidden`}>Dátum</span>
                   <span className={`${typeTitle} block whitespace-nowrap`}>{dateLabel}</span>
@@ -534,7 +538,7 @@ function RecordDetails({
       {hasNextService || mechanicNote ? (
         <div className="flex items-start gap-3">
           <div className={cn(historySplitClass, "flex-col sm:flex-row sm:items-start")}>
-            <div className={cn(historyIdentityCols, "sm:items-start")}>
+            <div className={cn(customerView ? historyIdentityColsCustomer : historyIdentityCols, "sm:items-start")}>
               {hasNextService ? (
                 <div className="flex min-w-0 flex-col gap-1 text-left">
                   <div className={typeCaption}>Ďalší servis</div>
@@ -574,15 +578,53 @@ function RecordDetails({
             customerView && accentBarClass
           )}
         >
-          <div className={cn(itemHeaderClass, itemGrid)}>
-            <div className={typeCaption}>Úkon</div>
-            <div className={typeCaption}>Náhradný diel</div>
-            <div className={typeCaption}>Typ materiálu</div>
-            <div className={typeCaption}>Množstvo</div>
-            <div className={typeCaption}>Značka</div>
-          </div>
+          {record.items.some((item) => !isDiagnosticAction(item.actionType)) ? (
+            <div className={cn(itemHeaderClass, itemGrid)}>
+              <div className={typeCaption}>Úkon</div>
+              <div className={typeCaption}>Náhradný diel</div>
+              <div className={typeCaption}>Typ materiálu</div>
+              <div className={typeCaption}>Množstvo</div>
+              <div className={typeCaption}>Značka</div>
+            </div>
+          ) : null}
           <div className="divide-y divide-neutral-200">
             {record.items.map((item) => {
+              if (isDiagnosticAction(item.actionType)) {
+                const scope = diagnosticScopeText(item)
+                const note = item.diagnosticNote?.trim() || ""
+                const status = diagnosticStatusText(item.diagnosticResolved)
+
+                return (
+                  <div key={item.id} className="px-4 py-3">
+                    <div className={diagnosticItemGrid}>
+                      <div>
+                        <div className={typeCaption}>Úkon</div>
+                        <ActionBadge action={item.actionType} />
+                      </div>
+                      <div className="min-w-0 text-left">
+                        <div className={typeCaption}>Rozsah</div>
+                        <div className={cn(typeBody, scope === "–" && typeDash)}>{scope}</div>
+                      </div>
+                      <div className="min-w-0 text-left">
+                        <div className={typeCaption}>Poznámka</div>
+                        <div className={cn(typeBody, !note && typeDash)}>{note || "–"}</div>
+                      </div>
+                      <div className="min-w-0 text-left">
+                        <div className={typeCaption}>Stav</div>
+                        <div className={typeBody}>{status}</div>
+                      </div>
+                    </div>
+                    <DiagnosticReportView
+                      report={{
+                        id: item.diagnosticReportId,
+                        name: item.diagnosticReportName,
+                        path: item.diagnosticReportPath,
+                      }}
+                    />
+                  </div>
+                )
+              }
+
               return (
                 <div
                   key={item.id}
@@ -664,7 +706,7 @@ function RecordTotals({
       <TotalCell label="Zárobok na materiáli">
         <div className={cn(typeTitle, typeTabular, marginTone)}>{formatMoney(money.margin)}</div>
       </TotalCell>
-      <TotalCell label="Obrat za servisné zákroky">
+      <TotalCell label="Hodnota zákroku">
         <div className={cn(typeDisplay, typeTabular)}>{formatMoney(money.billed)}</div>
       </TotalCell>
     </div>

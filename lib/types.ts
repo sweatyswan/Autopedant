@@ -26,7 +26,9 @@ export type Customer = {
   email?: string
 }
 
-export type ServiceActionType = "Výmena" | "Oprava" | "Kontrola" | "Nastavenie"
+export type ServiceActionType = "Výmena" | "Oprava" | "Kontrola" | "Nastavenie" | "Diagnostika"
+
+export type DiagnosticScope = "komplexna" | "jednotka"
 
 export type ServiceCategory =
   | "Motor a prevodovka"
@@ -44,6 +46,13 @@ export type ServiceItem = {
   quantity: string
   purchasePrice: number
   sellPrice: number
+  diagnosticScope?: DiagnosticScope
+  diagnosticUnit?: string
+  diagnosticNote?: string
+  diagnosticResolved?: boolean
+  diagnosticReportId?: string
+  diagnosticReportName?: string
+  diagnosticReportPath?: string
 }
 
 export type ServiceRecord = {
@@ -78,4 +87,5 @@ export const serviceActions: ServiceActionType[] = [
   "Oprava",
   "Kontrola",
   "Nastavenie",
+  "Diagnostika",
 ]

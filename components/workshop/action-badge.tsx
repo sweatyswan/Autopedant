@@ -8,6 +8,7 @@ const actionClass: Record<ServiceActionType, string> = {
   Oprava: "border border-neutral-300 bg-neutral-100 text-black",
   Kontrola: "border border-dashed border-neutral-300 bg-white text-neutral-700",
   Nastavenie: "border border-neutral-300 bg-white text-black",
+  Diagnostika: "border border-[#0F7AAB]/40 bg-[#c5e6f2] text-[#095A7C]",
 }
 
 export function ActionBadge({ action }: { action: ServiceActionType }) {

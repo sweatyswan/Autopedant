@@ -82,6 +82,27 @@ export const monthLabels = [
   "dec",
 ] as const
 
+export function recordMatchesPeriod(record: ServiceRecord, filters: ListFilters) {
+  if (filters.year && Number(record.serviceDate.slice(0, 4)) !== filters.year) {
+    return false
+  }
+
+  if (filters.monthFrom) {
+    const month = Number(record.serviceDate.slice(5, 7))
+    const monthTo = filters.monthTo ?? filters.monthFrom
+    if (month < filters.monthFrom || (monthTo && month > monthTo)) {
+      return false
+    }
+  }
+
+  return true
+}
+
+export function filterRecords(records: ServiceRecord[], vehicles: Vehicle[], filters: ListFilters) {
+  const vehicleIds = new Set(vehicles.map((vehicle) => vehicle.id))
+  return records.filter((record) => vehicleIds.has(record.vehicleId) && recordMatchesPeriod(record, filters))
+}
+
 export function filterVehicles(
   vehicles: Vehicle[],
   records: ServiceRecord[],
@@ -112,22 +133,7 @@ export function filterVehicles(
     const vehicleRecords = records.filter((record) => record.vehicleId === vehicle.id)
 
     if (filters.year || filters.monthFrom || filters.monthTo) {
-      const monthFrom = filters.monthFrom
-      const monthTo = filters.monthTo ?? filters.monthFrom
-      const matchesPeriod = vehicleRecords.some((record) => {
-        if (filters.year && Number(record.serviceDate.slice(0, 4)) !== filters.year) {
-          return false
-        }
-        if (monthFrom) {
-          const month = Number(record.serviceDate.slice(5, 7))
-          if (month < monthFrom || (monthTo && month > monthTo)) {
-            return false
-          }
-        }
-        return true
-      })
-
-      if (!matchesPeriod) {
+      if (!vehicleRecords.some((record) => recordMatchesPeriod(record, filters))) {
         return false
       }
     }

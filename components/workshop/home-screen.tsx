@@ -42,6 +42,7 @@ import { VehicleDialog } from "@/components/workshop/vehicle-dialog"
 import { formatDate, formatKm, formatNextService, formatPlate, formatVehicleSpec } from "@/lib/format"
 import { sumTotals } from "@/lib/finance"
 import {
+  filterRecords,
   filterVehicles,
   latestOilRecord,
   latestOilUpcoming,
@@ -85,11 +86,16 @@ export function HomeScreen() {
     return sortVehicles(filtered, records, customers, sort, direction)
   }, [customers, direction, filters, query, records, sort, vehicles])
 
+  const visibleRecords = useMemo(
+    () => filterRecords(records, results, filters),
+    [filters, records, results]
+  )
+  const totals = useMemo(() => sumTotals(visibleRecords), [visibleRecords])
+
   useEffect(() => {
     setActive(0)
   }, [direction, filters, query, sort])
 
-  const totals = sumTotals(records)
   const customersById = new Map(customers.map((customer) => [customer.id, customer]))
 
   function openActive() {
@@ -116,7 +122,7 @@ export function HomeScreen() {
         }
       />
       <main className="mx-auto flex max-w-6xl flex-col gap-3 p-3">
-        <HomeStats vehicles={vehicles.length} visits={records.length} totals={totals} />
+        <HomeStats vehicles={results.length} visits={visibleRecords.length} totals={totals} />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex min-w-0 flex-1 flex-col gap-2">

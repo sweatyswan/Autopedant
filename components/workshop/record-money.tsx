@@ -53,7 +53,7 @@ export function RecordMoneyDisplay({
       <MoneyCell label="Zárobok na materiáli">
         <div className={cn(typeTitle, typeTabular, marginTone)}>{formatMoney(margin)}</div>
       </MoneyCell>
-      <MoneyCell label="Obrat za servisné zákroky">
+      <MoneyCell label="Hodnota zákroku">
         <div className={cn(typeDisplay, typeTabular)}>{formatMoney(billed)}</div>
       </MoneyCell>
     </div>
@@ -111,7 +111,7 @@ export function RecordMoneyFields({
       </div>
       <div className="flex min-w-0 flex-col gap-1 text-left">
         <Label className={typeCaption} htmlFor="inline-billed">
-          Obrat za servisné zákroky
+          Hodnota zákroku
         </Label>
         <MoneyInput
           id="inline-billed"

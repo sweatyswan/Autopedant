@@ -3,7 +3,8 @@ import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib"
 
 import { recordTotals } from "@/lib/finance"
 import { formatDate, formatKm, formatMoney, formatNextService, formatPlate, formatVehicleSpec } from "@/lib/format"
-import type { Customer, ServiceRecord, Vehicle } from "@/lib/types"
+import { diagnosticScopeText, diagnosticStatusText, isDiagnosticAction } from "@/lib/service-catalog"
+import type { Customer, ServiceItem, ServiceRecord, Vehicle } from "@/lib/types"
 
 const pageWidth = 595.28
 const pageHeight = 841.89
@@ -312,13 +313,21 @@ export async function downloadVisitPdf({
   }
 
   if (record.items.length > 0) {
-    const columns = [
-      { key: "action" as const, width: 78, label: "Úkon" },
-      { key: "part" as const, width: 168, label: "Náhradný diel" },
-      { key: "material" as const, width: 96, label: "Typ materiálu" },
-      { key: "quantity" as const, width: 72, label: "Množstvo" },
-      { key: "brand" as const, width: contentWidth - 78 - 168 - 96 - 72, label: "Značka" },
-    ]
+    const onlyDiagnostic = record.items.every((item) => isDiagnosticAction(item.actionType))
+    const columns = onlyDiagnostic
+      ? [
+          { key: "action", width: 90, label: "Úkon" },
+          { key: "scope", width: 140, label: "Rozsah" },
+          { key: "note", width: contentWidth - 90 - 140 - 88, label: "Poznámka" },
+          { key: "status", width: 88, label: "Stav" },
+        ]
+      : [
+          { key: "action", width: 78, label: "Úkon" },
+          { key: "part", width: 168, label: "Náhradný diel" },
+          { key: "material", width: 96, label: "Typ materiálu" },
+          { key: "quantity", width: 72, label: "Množstvo" },
+          { key: "brand", width: contentWidth - 78 - 168 - 96 - 72, label: "Značka" },
+        ]
 
     const drawHeader = () => {
       writer.ensure(22)
@@ -338,24 +347,7 @@ export async function downloadVisitPdf({
     drawHeader()
 
     for (const item of record.items) {
-      const cells: TextLine[][] = columns.map((column) => {
-        if (column.key === "action") {
-          return [{ text: item.actionType, font: fonts.semibold, size: bodySize }]
-        }
-        if (column.key === "part") {
-          return [
-            { text: item.partName || "–", font: fonts.regular, size: bodySize },
-            { text: item.category, font: fonts.regular, size: captionSize, color: muted },
-          ]
-        }
-        if (column.key === "material") {
-          return [{ text: item.materialType || "–", font: fonts.regular, size: bodySize }]
-        }
-        if (column.key === "quantity") {
-          return [{ text: item.quantity || "–", font: fonts.regular, size: bodySize }]
-        }
-        return [{ text: item.partBrand || "–", font: fonts.regular, size: bodySize }]
-      })
+      const cells: TextLine[][] = columns.map((column) => itemPdfCell(item, column.key, fonts))
       const wrapped = cells.map((cell, index) => wrapLines(cell, columns[index].width - 6))
       const rowHeight = Math.max(...wrapped.map((cell) => cell.reduce((sum, line) => sum + line.size + lineGap, 0))) + 6
 
@@ -383,7 +375,7 @@ export async function downloadVisitPdf({
     const totals = [
       { label: "Zárobok za prácu", value: formatMoney(money.labor), size: titleSize, color: moneyColor(money.labor) },
       { label: "Zárobok na materiáli", value: formatMoney(money.margin), size: titleSize, color: moneyColor(money.margin) },
-      { label: "Obrat za servisné zákroky", value: formatMoney(money.billed), size: displaySize, color: ink },
+      { label: "Hodnota zákroku", value: formatMoney(money.billed), size: displaySize, color: ink },
     ]
     writer.ensure(40)
     writer.y -= 8
@@ -415,7 +407,67 @@ function visitCountLabel(count: number) {
   return `${count} zákrokov`
 }
 
+function labeledLine(label: string, value: string, fonts: Fonts): TextLine[] {
+  return [
+    { text: label, font: fonts.regular, size: captionSize, color: muted },
+    { text: value, font: fonts.regular, size: bodySize },
+  ]
+}
+
+function itemPdfCell(item: ServiceItem, key: string, fonts: Fonts): TextLine[] {
+  if (isDiagnosticAction(item.actionType)) {
+    const scope = diagnosticScopeText(item)
+    const note = item.diagnosticNote?.trim() || "–"
+    const status = diagnosticStatusText(item.diagnosticResolved)
+    if (key === "action") {
+      return [{ text: item.actionType, font: fonts.semibold, size: bodySize }]
+    }
+    if (key === "scope") {
+      return [{ text: scope, font: fonts.regular, size: bodySize }]
+    }
+    if (key === "note") {
+      return [{ text: note, font: fonts.regular, size: bodySize }]
+    }
+    if (key === "status") {
+      return [{ text: status, font: fonts.regular, size: bodySize }]
+    }
+    if (key === "part") {
+      return labeledLine("Rozsah", scope, fonts)
+    }
+    if (key === "material") {
+      return labeledLine("Poznámka", note, fonts)
+    }
+    if (key === "quantity") {
+      return labeledLine("Stav", status, fonts)
+    }
+    return [{ text: "–", font: fonts.regular, size: bodySize }]
+  }
+
+  if (key === "action") {
+    return [{ text: item.actionType, font: fonts.semibold, size: bodySize }]
+  }
+  if (key === "part" || key === "scope") {
+    return [
+      { text: item.partName || "–", font: fonts.regular, size: bodySize },
+      { text: item.category, font: fonts.regular, size: captionSize, color: muted },
+    ]
+  }
+  if (key === "material" || key === "note") {
+    return [{ text: item.materialType || "–", font: fonts.regular, size: bodySize }]
+  }
+  if (key === "quantity" || key === "status") {
+    return [{ text: item.quantity || "–", font: fonts.regular, size: bodySize }]
+  }
+  return [{ text: item.partBrand || "–", font: fonts.regular, size: bodySize }]
+}
+
 function itemLine(item: ServiceRecord["items"][number]) {
+  if (isDiagnosticAction(item.actionType)) {
+    return [item.actionType, diagnosticScopeText(item), item.diagnosticNote?.trim(), diagnosticStatusText(item.diagnosticResolved)]
+      .filter((part) => part && part !== "–")
+      .join(" · ")
+  }
+
   return [item.actionType, item.partName || item.category, item.quantity, item.materialType, item.partBrand]
     .filter((part) => part && part !== "–")
     .join(" · ")

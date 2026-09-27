@@ -31,7 +31,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  bandClass,
   fieldClass,
   iconSize,
   popoverSurfaceClass,
@@ -44,7 +43,6 @@ import {
   typeTitle,
 } from "@/components/workshop/styles"
 import { formatDisplacement, formatPlate, normalizeName, parseDisplacement } from "@/lib/format"
-import { cn } from "@/lib/utils"
 import { engineDisplacements, fuelTypes, type Customer, type FuelType, type Vehicle } from "@/lib/types"
 import { useWorkshop } from "@/lib/workshop-context"
 
@@ -466,7 +464,7 @@ export function VehicleDialog({
 
           {error ? <p className={typeError}>{error}</p> : null}
 
-          <DialogFooter className={cn("border-neutral-200 sm:justify-end", bandClass)}>
+          <DialogFooter className="border-neutral-200 bg-white sm:justify-end">
             <Button type="button" className={quietButtonClass} onClick={close}>
               Zrušiť
               <X size={iconSize} />

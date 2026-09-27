@@ -13,15 +13,20 @@ import {
 import { canvasClass } from "@/components/workshop/styles"
 import { useAuth } from "@/lib/auth-context"
 import {
+  canRevertChange,
   createChange,
+  hydrateChangeForRevert,
   mergeChanges,
   readLocalChanges,
   recordChangeDetail,
   recordChangeNote,
+  snapshotOf,
   vehicleChangeDetail,
   vehicleChangeNote,
   writeLocalChanges,
   type ChangeEvent,
+  type ChangeKind,
+  type ChangeSnapshot,
 } from "@/lib/change-log"
 import { formatPlate, isISODate, normalizeCode } from "@/lib/format"
 import { normalizeCategory } from "@/lib/service-catalog"
@@ -38,6 +43,7 @@ import {
   saveChangeEvent,
   saveCustomerAndVehicle,
   saveRecord,
+  uploadDiagnosticReports,
 } from "@/lib/workshop-cloud"
 import { fuelTypes, type Customer, type FuelType, type ServiceRecord, type Vehicle, type WorkshopData } from "@/lib/types"
 
@@ -69,6 +75,7 @@ type WorkshopContextValue = {
   addRecord: (record: ServiceRecord) => void
   updateRecord: (record: ServiceRecord) => void
   deleteRecord: (recordId: string) => void
+  revertChange: (changeId: string) => { ok: true } | { ok: false; message: string }
 }
 
 const WorkshopContext = createContext<WorkshopContextValue | null>(null)
@@ -317,10 +324,15 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      void saveRecord(client, userId, record).then(
-        () => setCloudError(""),
-        (error) => setCloudError(cloudErrorMessage(error))
-      )
+      void uploadDiagnosticReports(client, userId, record)
+        .then((next) => saveRecord(client, userId, next).then(() => next))
+        .then((next) => {
+          setData((current) => ({
+            ...current,
+            records: current.records.map((item) => (item.id === next.id ? next : item)),
+          }))
+          setCloudError("")
+        }, (error) => setCloudError(cloudErrorMessage(error)))
     },
     [userId]
   )
@@ -333,6 +345,21 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
       }
 
       void deleteRecordRow(client, recordId).then(
+        () => setCloudError(""),
+        (error) => setCloudError(cloudErrorMessage(error))
+      )
+    },
+    [userId]
+  )
+
+  const persistVehicleDelete = useCallback(
+    (vehicleId: string, customerId?: string) => {
+      const client = getSupabase()
+      if (!client || !userId) {
+        return
+      }
+
+      void purgeWorkshopIds(client, [vehicleId], customerId ? [customerId] : []).then(
         () => setCloudError(""),
         (error) => setCloudError(cloudErrorMessage(error))
       )
@@ -393,6 +420,12 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
         title: "Nové vozidlo",
         detail: vehicleChangeDetail(customer, vehicle),
         vehicleId,
+        kind: "vehicle.add",
+        snapshot: {
+          vehicle: snapshotOf(vehicle),
+          customer: snapshotOf(customer),
+          createdCustomer: !input.customerId,
+        },
       })
     )
 
@@ -457,6 +490,13 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
           .filter(Boolean)
           .join(" · "),
         vehicleId,
+        kind: "vehicle.update",
+        snapshot: {
+          vehicle: snapshotOf(vehicle),
+          previousVehicle: snapshotOf(existing),
+          customer: snapshotOf(customer),
+          previousCustomer: previousCustomer ? snapshotOf(previousCustomer) : undefined,
+        },
       })
     )
 
@@ -486,6 +526,12 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
         title: "Nový zákrok",
         detail: recordChangeDetail(customer, vehicle, record),
         vehicleId: record.vehicleId,
+        kind: "record.add",
+        snapshot: {
+          record: snapshotOf(record),
+          previousVehicle: vehicle ? snapshotOf(vehicle) : undefined,
+          vehicle: stamped ? snapshotOf(stamped) : undefined,
+        },
       })
     )
   }, [persistRecord, persistVehicle, rememberChange])
@@ -505,6 +551,11 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
         title: "Upravený zákrok",
         detail: [recordChangeDetail(customer, vehicle, record), note].filter(Boolean).join(" · "),
         vehicleId: record.vehicleId,
+        kind: "record.update",
+        snapshot: {
+          record: snapshotOf(record),
+          previousRecord: previous ? snapshotOf(previous) : undefined,
+        },
       })
     )
   }, [persistRecord, rememberChange])
@@ -527,9 +578,184 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
         title: "Odstránený zákrok",
         detail: recordChangeDetail(customer, vehicle, record),
         vehicleId: record.vehicleId,
+        kind: "record.delete",
+        snapshot: {
+          record: snapshotOf(record),
+        },
       })
     )
   }, [persistRecordDelete, rememberChange])
+
+  const revertChange = useCallback((changeId: string) => {
+    const listed = changesRef.current.find((item) => item.id === changeId)
+    const change = listed ? hydrateChangeForRevert(listed, dataRef.current) : null
+    if (!listed || !change || !canRevertChange(listed) || !change.kind || !change.snapshot) {
+      return { ok: false as const, message: "Túto zmenu sa nedá vrátiť." }
+    }
+
+    const snap = change.snapshot
+    const current = dataRef.current
+    let next = current
+    let inverseKind: ChangeKind = change.kind
+    let inverse: ChangeSnapshot = {}
+    const persist: Array<() => void> = []
+
+    if (change.kind === "record.update") {
+      const previous = snap.previousRecord
+      if (!previous) {
+        return { ok: false as const, message: "Túto zmenu sa nedá vrátiť." }
+      }
+
+      const existing = current.records.find((item) => item.id === previous.id)
+      next = {
+        ...current,
+        records: existing
+          ? current.records.map((item) => (item.id === previous.id ? previous : item))
+          : [...current.records, previous],
+      }
+      inverseKind = existing ? "record.update" : "record.add"
+      inverse = {
+        record: snapshotOf(previous),
+        previousRecord: existing ? snapshotOf(existing) : undefined,
+      }
+      persist.push(() => persistRecord(previous))
+    } else if (change.kind === "record.delete") {
+      const record = snap.record
+      if (!record) {
+        return { ok: false as const, message: "Túto zmenu sa nedá vrátiť." }
+      }
+
+      if (!current.records.some((item) => item.id === record.id)) {
+        next = { ...current, records: [...current.records, record] }
+        persist.push(() => persistRecord(record))
+      }
+      inverseKind = "record.add"
+      inverse = { record: snapshotOf(record) }
+    } else if (change.kind === "record.add") {
+      const record = snap.record
+      if (!record) {
+        return { ok: false as const, message: "Túto zmenu sa nedá vrátiť." }
+      }
+
+      const existing = current.records.find((item) => item.id === record.id)
+      next = {
+        ...current,
+        records: current.records.filter((item) => item.id !== record.id),
+        vehicles: snap.previousVehicle
+          ? current.vehicles.map((item) => (item.id === snap.previousVehicle?.id ? snap.previousVehicle : item))
+          : current.vehicles,
+      }
+      inverseKind = "record.delete"
+      inverse = { record: existing ? snapshotOf(existing) : snapshotOf(record) }
+      persist.push(() => persistRecordDelete(record.id))
+      if (snap.previousVehicle) {
+        const owner = current.customers.find((item) => item.id === snap.previousVehicle?.customerId)
+        if (owner) {
+          persist.push(() => persistVehicle(owner, snap.previousVehicle as Vehicle))
+        }
+      }
+    } else if (change.kind === "vehicle.update") {
+      const previousVehicle = snap.previousVehicle
+      const previousCustomer = snap.previousCustomer
+      if (!previousVehicle || !previousCustomer) {
+        return { ok: false as const, message: "Túto zmenu sa nedá vrátiť." }
+      }
+
+      const existingVehicle = current.vehicles.find((item) => item.id === previousVehicle.id)
+      const existingCustomer = current.customers.find((item) => item.id === previousCustomer.id)
+      next = {
+        ...current,
+        vehicles: current.vehicles.map((item) => (item.id === previousVehicle.id ? previousVehicle : item)),
+        customers: current.customers.map((item) => (item.id === previousCustomer.id ? previousCustomer : item)),
+      }
+      inverseKind = "vehicle.update"
+      inverse = {
+        vehicle: snapshotOf(previousVehicle),
+        previousVehicle: existingVehicle ? snapshotOf(existingVehicle) : undefined,
+        customer: snapshotOf(previousCustomer),
+        previousCustomer: existingCustomer ? snapshotOf(existingCustomer) : undefined,
+      }
+      persist.push(() => persistVehicle(previousCustomer, previousVehicle))
+    } else if (change.kind === "vehicle.add") {
+      const vehicle = snap.vehicle
+      if (!vehicle) {
+        return { ok: false as const, message: "Túto zmenu sa nedá vrátiť." }
+      }
+
+      const leftoverVehicles = current.vehicles.filter((item) => item.id !== vehicle.id)
+      const dropCustomer =
+        snap.createdCustomer &&
+        !leftoverVehicles.some((item) => item.customerId === vehicle.customerId)
+      next = {
+        customers: dropCustomer
+          ? current.customers.filter((item) => item.id !== vehicle.customerId)
+          : current.customers,
+        vehicles: leftoverVehicles,
+        records: current.records.filter((item) => item.vehicleId !== vehicle.id),
+      }
+      inverseKind = "vehicle.delete"
+      inverse = {
+        vehicle: snapshotOf(vehicle),
+        customer: snap.customer ? snapshotOf(snap.customer) : undefined,
+        createdCustomer: snap.createdCustomer,
+        records: current.records.filter((item) => item.vehicleId === vehicle.id).map((item) => snapshotOf(item)),
+      }
+      for (const record of current.records.filter((item) => item.vehicleId === vehicle.id)) {
+        persist.push(() => persistRecordDelete(record.id))
+      }
+      persist.push(() => persistVehicleDelete(vehicle.id, dropCustomer ? vehicle.customerId : undefined))
+    } else if (change.kind === "vehicle.delete") {
+      const vehicle = snap.vehicle
+      const customer = snap.customer
+      if (!vehicle || !customer) {
+        return { ok: false as const, message: "Túto zmenu sa nedá vrátiť." }
+      }
+
+      const records = snap.records ?? []
+      next = {
+        customers: current.customers.some((item) => item.id === customer.id)
+          ? current.customers
+          : [...current.customers, customer],
+        vehicles: current.vehicles.some((item) => item.id === vehicle.id)
+          ? current.vehicles
+          : [...current.vehicles, vehicle],
+        records: [
+          ...current.records.filter((item) => !records.some((record) => record.id === item.id)),
+          ...records,
+        ],
+      }
+      inverseKind = "vehicle.add"
+      inverse = {
+        vehicle: snapshotOf(vehicle),
+        customer: snapshotOf(customer),
+        createdCustomer: snap.createdCustomer,
+      }
+      persist.push(() => persistVehicle(customer, vehicle))
+      for (const record of records) {
+        persist.push(() => persistRecord(record))
+      }
+    } else {
+      return { ok: false as const, message: "Túto zmenu sa nedá vrátiť." }
+    }
+
+    setData(next)
+    persist.forEach((write) => write())
+    rememberChange({
+      ...change,
+      reverted: true,
+    })
+    rememberChange(
+      createChange({
+        title: "Vrátená zmena",
+        detail: [change.title, change.detail].filter(Boolean).join(" · "),
+        vehicleId: change.vehicleId,
+        kind: inverseKind,
+        snapshot: inverse,
+      })
+    )
+
+    return { ok: true as const }
+  }, [persistRecord, persistRecordDelete, persistVehicle, persistVehicleDelete, rememberChange])
 
   const value = useMemo<WorkshopContextValue>(
     () => ({
@@ -544,8 +770,9 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
       addRecord,
       updateRecord,
       deleteRecord,
+      revertChange,
     }),
-    [addRecord, addVehicle, updateVehicle, changes, cloudError, deleteRecord, updateRecord, data, ready]
+    [addRecord, addVehicle, updateVehicle, changes, cloudError, deleteRecord, revertChange, updateRecord, data, ready]
   )
 
   return (

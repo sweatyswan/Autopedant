@@ -30,7 +30,7 @@ export function HomeStats({
           share={formatPercent(totals.margin, totals.billed) || undefined}
           tone={moneyTone(totals.margin)}
         />
-        <StatCell label="Obrat za servisné zákroky" value={formatMoney(totals.billed)} loud />
+        <StatCell label="Hodnota zákrokov" value={formatMoney(totals.billed)} loud />
       </div>
     </div>
   )

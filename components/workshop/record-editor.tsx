@@ -22,6 +22,7 @@ import {
   historyMoneyPaneClass,
   historySplitClass,
   noteBleedClass,
+  diagnosticItemGridEditor,
   itemGridEditor,
 } from "@/components/workshop/record-layout"
 import { RecordMoneyFields, RecordMoneyPortal } from "@/components/workshop/record-money"
@@ -34,8 +35,10 @@ import {
   primaryButtonClass,
   quietButtonClass,
   typeCaption,
+  typeDanger,
   typeError,
 } from "@/components/workshop/styles"
+import { DiagnosticReportField } from "@/components/workshop/diagnostic-report"
 import { KmInput } from "@/components/workshop/km-input"
 import { formatAmountInput, formatKmInput, todayISO } from "@/lib/format"
 import { recordTotals } from "@/lib/finance"
@@ -47,7 +50,7 @@ import {
   emptyItem,
   type DraftItem,
 } from "@/lib/record-draft"
-import { actionsFor, isCustomOperation, operationsFor } from "@/lib/service-catalog"
+import { actionsFor, diagnosticUnits, isCustomOperation, isDiagnosticAction, operationsFor } from "@/lib/service-catalog"
 import { serviceCategories, type ServiceActionType, type ServiceCategory, type ServiceRecord } from "@/lib/types"
 import { useWorkshop } from "@/lib/workshop-context"
 import { cn } from "@/lib/utils"
@@ -229,130 +232,12 @@ export function RecordEditor({
       <div className={cn("overflow-hidden rounded-lg border border-neutral-200 print:bg-white", insetClass)}>
         <div className="divide-y divide-neutral-200">
           {items.map((item) => (
-            <div key={item.key} className={cn("px-4 py-3", itemGridEditor)}>
-              <div className="flex min-w-0 flex-col gap-1 text-left">
-                <div className={typeCaption}>Úkon</div>
-                <Select
-                  value={item.actionType || null}
-                  onValueChange={(value) => {
-                    if (value) {
-                      updateItem(item.key, { actionType: value as ServiceActionType })
-                    }
-                  }}
-                >
-                  <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
-                    <SelectValue placeholder="Zvoľte úkon" />
-                  </SelectTrigger>
-                  <SelectContent className={popoverSurfaceClass}>
-                    {actionsFor(item.category).map((action) => (
-                      <SelectItem key={action} value={action}>
-                        {action}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex min-w-0 flex-col gap-2 text-left">
-                <div className={typeCaption}>Kategória</div>
-                <Select
-                  value={item.category || null}
-                  onValueChange={(value) => {
-                    if (!value) {
-                      return
-                    }
-
-                    const category = value as ServiceCategory
-                    const nextActions = actionsFor(category)
-                    updateItem(item.key, {
-                      category,
-                      operation: "",
-                      detail: "",
-                      actionType: nextActions.includes(item.actionType as ServiceActionType)
-                        ? item.actionType
-                        : "",
-                    })
-                  }}
-                >
-                  <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
-                    <SelectValue placeholder="Zvoľte kategóriu" />
-                  </SelectTrigger>
-                  <SelectContent className={popoverSurfaceClass}>
-                    {serviceCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className={typeCaption}>Náhradný diel</div>
-                <Select
-                  value={item.operation || null}
-                  disabled={!item.category}
-                  onValueChange={(value) => {
-                    if (value) {
-                      updateItem(item.key, { operation: value, detail: "" })
-                    }
-                  }}
-                >
-                  <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
-                    <SelectValue placeholder={item.category ? "Zvoľte náhradný diel" : "Najprv zvoľte kategóriu"} />
-                  </SelectTrigger>
-                  <SelectContent className={popoverSurfaceClass}>
-                    {operationsFor(item.category).map((operation) => (
-                      <SelectItem key={operation.name} value={operation.name}>
-                        {operation.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {isCustomOperation(item.category, item.operation) ? (
-                  <Input
-                    className={fieldClass}
-                    value={item.detail}
-                    onChange={(event) => updateItem(item.key, { detail: event.target.value })}
-                    placeholder="Zadajte názov dielu"
-                  />
-                ) : null}
-              </div>
-              <div className="flex min-w-0 flex-col gap-1 text-left">
-                <div className={typeCaption}>Typ materiálu</div>
-                <Input
-                  className={fieldClass}
-                  value={item.materialType}
-                  onChange={(event) => updateItem(item.key, { materialType: event.target.value })}
-                  placeholder="Napr. originálny diel"
-                />
-              </div>
-              <div className="flex min-w-0 flex-col gap-1 text-left">
-                <div className={typeCaption}>Množstvo</div>
-                <Input
-                  className={fieldClass}
-                  value={item.quantity}
-                  onChange={(event) => updateItem(item.key, { quantity: event.target.value })}
-                  placeholder="Napr. 5 l, 2 ks"
-                />
-              </div>
-              <div className="flex min-w-0 flex-col gap-1 text-left">
-                <div className={typeCaption}>Značka</div>
-                <Input
-                  className={fieldClass}
-                  value={item.partBrand}
-                  onChange={(event) => updateItem(item.key, { partBrand: event.target.value })}
-                  placeholder="Napr. ATE"
-                />
-              </div>
-              <div className="flex items-start justify-end">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className={`${quietButtonClass} px-2`}
-                  onClick={() => setItems((current) => current.filter((row) => row.key !== item.key))}
-                >
-                  <Bin size={iconSize} />
-                  <span className="sm:hidden">Odstrániť</span>
-                </Button>
-              </div>
-            </div>
+            <ItemEditorRow
+              key={item.key}
+              item={item}
+              onChange={(patch) => updateItem(item.key, patch)}
+              onRemove={() => setItems((current) => current.filter((row) => row.key !== item.key))}
+            />
           ))}
         </div>
       </div>
@@ -396,5 +281,301 @@ export function RecordEditor({
         </div>
       </div>
     </form>
+  )
+}
+
+function ItemEditorRow({
+  item,
+  onChange,
+  onRemove,
+}: {
+  item: DraftItem
+  onChange: (patch: Partial<DraftItem>) => void
+  onRemove: () => void
+}) {
+  const diagnostic = isDiagnosticAction(item.actionType)
+
+  function chooseAction(value: string | null) {
+    if (!value) {
+      return
+    }
+
+    const action = value as ServiceActionType
+    if (isDiagnosticAction(action)) {
+      onChange({
+        actionType: action,
+        category: "Ostatné práce a diely",
+        operation: "",
+        detail: "",
+        partBrand: "",
+        materialType: "",
+        quantity: "",
+        purchasePrice: "",
+        sellPrice: "",
+        diagnosticResolved: diagnostic ? item.diagnosticResolved : false,
+      })
+      return
+    }
+
+    onChange({
+      actionType: action,
+      category: diagnostic ? "" : item.category,
+      diagnosticScope: "",
+      diagnosticUnit: "",
+      diagnosticNote: "",
+      diagnosticResolved: false,
+      diagnosticReportId: "",
+      diagnosticReportName: "",
+      diagnosticReportPath: "",
+    })
+  }
+
+  return (
+    <div className="px-4 py-3">
+      <div className={cn(diagnostic ? diagnosticItemGridEditor : itemGridEditor)}>
+        <div className="flex min-w-0 flex-col gap-1 text-left">
+          <div className={typeCaption}>Úkon</div>
+          <Select value={item.actionType || null} onValueChange={chooseAction}>
+            <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
+              <SelectValue placeholder="Zvoľte úkon" />
+            </SelectTrigger>
+            <SelectContent className={popoverSurfaceClass}>
+              {actionsFor(diagnostic ? "" : item.category).map((action) => (
+                <SelectItem key={action} value={action}>
+                  {action}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {diagnostic ? (
+          <DiagnosticFields item={item} onChange={onChange} />
+        ) : (
+          <PartFields item={item} onChange={onChange} />
+        )}
+        <div className="flex min-w-0 flex-col items-end gap-1">
+          <div className={cn(typeCaption, "invisible")} aria-hidden>
+            Odstrániť
+          </div>
+          <Button
+            type="button"
+            className={cn(quietButtonClass, typeDanger, "px-2")}
+            aria-label="Odstrániť"
+            onClick={onRemove}
+          >
+            <Bin size={iconSize} />
+          </Button>
+        </div>
+      </div>
+      {diagnostic ? <DiagnosticReportField item={item} onChange={onChange} /> : null}
+    </div>
+  )
+}
+
+function DiagnosticFields({
+  item,
+  onChange,
+}: {
+  item: DraftItem
+  onChange: (patch: Partial<DraftItem>) => void
+}) {
+  const unitReady = item.diagnosticScope === "jednotka"
+
+  return (
+    <>
+      <div className="flex min-w-0 flex-col gap-1 text-left">
+        <div className={typeCaption}>Rozsah</div>
+        <Select
+          value={
+            item.diagnosticScope === "komplexna"
+              ? "Komplexná diagnostika"
+              : item.diagnosticScope === "jednotka"
+                ? "Konkrétna jednotka"
+                : null
+          }
+          onValueChange={(value) => {
+            const scope = value === "Komplexná diagnostika" ? "komplexna" : value === "Konkrétna jednotka" ? "jednotka" : ""
+            if (!scope) {
+              return
+            }
+
+            onChange({
+              diagnosticScope: scope,
+              diagnosticUnit: scope === "komplexna" ? "" : item.diagnosticUnit,
+            })
+          }}
+        >
+          <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
+            <SelectValue placeholder="Zvoľte rozsah" />
+          </SelectTrigger>
+          <SelectContent className={popoverSurfaceClass}>
+            <SelectItem value="Komplexná diagnostika">Komplexná diagnostika</SelectItem>
+            <SelectItem value="Konkrétna jednotka">Konkrétna jednotka</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex min-w-0 flex-col gap-1 text-left">
+        <div className={typeCaption}>Jednotka</div>
+        {item.diagnosticScope === "komplexna" ? (
+          <Select value="Všetky jednotky">
+            <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className={popoverSurfaceClass}>
+              <SelectItem value="Všetky jednotky">Všetky jednotky</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <Select
+            value={item.diagnosticUnit || null}
+            disabled={!unitReady}
+            onValueChange={(value) => {
+              if (value) {
+                onChange({ diagnosticUnit: value })
+              }
+            }}
+          >
+            <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
+              <SelectValue placeholder={unitReady ? "Zvoľte jednotku" : "Najprv zvoľte rozsah"} />
+            </SelectTrigger>
+            <SelectContent className={popoverSurfaceClass}>
+              {diagnosticUnits.map((unit) => (
+                <SelectItem key={unit} value={unit}>
+                  {unit}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+      <div className="flex min-w-0 flex-col gap-1 text-left">
+        <div className={typeCaption}>Poznámka</div>
+        <Input
+          className={fieldClass}
+          value={item.diagnosticNote}
+          onChange={(event) => onChange({ diagnosticNote: event.target.value })}
+          placeholder="Napr. chybový kód"
+        />
+      </div>
+      <div className="flex min-w-0 flex-col gap-1 text-left">
+        <div className={typeCaption}>Stav</div>
+        <Select
+          value={item.diagnosticResolved ? "Vyriešené" : "Nevyriešené"}
+          onValueChange={(value) => onChange({ diagnosticResolved: value === "Vyriešené" })}
+        >
+          <SelectTrigger className={cn(fieldClass, "w-full")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className={popoverSurfaceClass}>
+            <SelectItem value="Nevyriešené">Nevyriešené</SelectItem>
+            <SelectItem value="Vyriešené">Vyriešené</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </>
+  )
+}
+
+function PartFields({
+  item,
+  onChange,
+}: {
+  item: DraftItem
+  onChange: (patch: Partial<DraftItem>) => void
+}) {
+  return (
+    <>
+      <div className="flex min-w-0 flex-col gap-2 text-left">
+        <div className={typeCaption}>Kategória</div>
+        <Select
+          value={item.category || null}
+          disabled={!item.actionType}
+          onValueChange={(value) => {
+            if (!value) {
+              return
+            }
+
+            const category = value as ServiceCategory
+            const nextActions = actionsFor(category)
+            onChange({
+              category,
+              operation: "",
+              detail: "",
+              actionType: nextActions.includes(item.actionType as ServiceActionType) ? item.actionType : "",
+            })
+          }}
+        >
+          <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
+            <SelectValue placeholder={item.actionType ? "Zvoľte kategóriu" : "Najprv zvoľte úkon"} />
+          </SelectTrigger>
+          <SelectContent className={popoverSurfaceClass}>
+            {serviceCategories.map((category) => (
+              <SelectItem key={category} value={category}>
+                {category}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className={typeCaption}>Náhradný diel</div>
+        <Select
+          value={item.operation || null}
+          disabled={!item.category}
+          onValueChange={(value) => {
+            if (value) {
+              onChange({ operation: value, detail: "" })
+            }
+          }}
+        >
+          <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
+            <SelectValue placeholder={item.category ? "Zvoľte náhradný diel" : "Najprv zvoľte kategóriu"} />
+          </SelectTrigger>
+          <SelectContent className={popoverSurfaceClass}>
+            {operationsFor(item.category).map((operation) => (
+              <SelectItem key={operation.name} value={operation.name}>
+                {operation.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {isCustomOperation(item.category, item.operation) ? (
+          <Input
+            className={fieldClass}
+            value={item.detail}
+            onChange={(event) => onChange({ detail: event.target.value })}
+            placeholder="Zadajte názov dielu"
+          />
+        ) : null}
+      </div>
+      <div className="flex min-w-0 flex-col gap-1 text-left">
+        <div className={typeCaption}>Typ materiálu</div>
+        <Input
+          className={fieldClass}
+          value={item.materialType}
+          disabled={!item.operation}
+          onChange={(event) => onChange({ materialType: event.target.value })}
+          placeholder="Napr. originálny diel"
+        />
+      </div>
+      <div className="flex min-w-0 flex-col gap-1 text-left">
+        <div className={typeCaption}>Množstvo</div>
+        <Input
+          className={fieldClass}
+          value={item.quantity}
+          disabled={!item.operation}
+          onChange={(event) => onChange({ quantity: event.target.value })}
+          placeholder="Napr. 5 l, 2 ks"
+        />
+      </div>
+      <div className="flex min-w-0 flex-col gap-1 text-left">
+        <div className={typeCaption}>Značka</div>
+        <Input
+          className={fieldClass}
+          value={item.partBrand}
+          disabled={!item.operation}
+          onChange={(event) => onChange({ partBrand: event.target.value })}
+          placeholder="Napr. ATE"
+        />
+      </div>
+    </>
   )
 }

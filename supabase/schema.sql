@@ -56,6 +56,14 @@ create table if not exists public.record_items (
   sort_index integer not null default 0
 );
 
+alter table public.record_items add column if not exists diagnostic_scope text;
+alter table public.record_items add column if not exists diagnostic_unit text;
+alter table public.record_items add column if not exists diagnostic_note text;
+alter table public.record_items add column if not exists diagnostic_resolved boolean;
+alter table public.record_items add column if not exists diagnostic_report_id text;
+alter table public.record_items add column if not exists diagnostic_report_name text;
+alter table public.record_items add column if not exists diagnostic_report_path text;
+
 create index if not exists customers_user_id_idx on public.customers (user_id);
 create index if not exists vehicles_user_id_idx on public.vehicles (user_id);
 create index if not exists records_user_id_idx on public.records (user_id);
@@ -93,6 +101,10 @@ create table if not exists public.change_events (
   created_at timestamptz not null default now()
 );
 
+alter table public.change_events add column if not exists kind text;
+alter table public.change_events add column if not exists reverted boolean not null default false;
+alter table public.change_events add column if not exists payload jsonb;
+
 create index if not exists change_events_user_id_idx on public.change_events (user_id);
 create index if not exists change_events_at_idx on public.change_events (user_id, at desc);
 
@@ -101,3 +113,19 @@ alter table public.change_events enable row level security;
 drop policy if exists change_events_own on public.change_events;
 create policy change_events_own on public.change_events
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('diagnostic-reports', 'diagnostic-reports', false, 8388608, array['application/pdf'])
+on conflict (id) do nothing;
+
+drop policy if exists diagnostic_reports_own on storage.objects;
+create policy diagnostic_reports_own on storage.objects
+  for all
+  using (
+    bucket_id = 'diagnostic-reports'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  )
+  with check (
+    bucket_id = 'diagnostic-reports'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );

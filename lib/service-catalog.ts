@@ -1,4 +1,4 @@
-import type { ServiceActionType, ServiceCategory } from "@/lib/types"
+import type { ServiceActionType, ServiceCategory, ServiceItem } from "@/lib/types"
 
 export type ServiceOperation = {
   name: string
@@ -87,12 +87,45 @@ export function operationsFor(category?: ServiceCategory | "") {
   return serviceGroups.find((group) => group.category === category)?.operations ?? []
 }
 
+export const diagnosticUnits = [
+  "Motor",
+  "Prevodovka",
+  "ABS / ESP",
+  "Airbag",
+  "Klimatizácia",
+  "Komfort",
+  "Prístrojová doska",
+  "Emisie / AdBlue",
+  "Parkovanie",
+  "Imobilizér",
+]
+
 export function actionsFor(category?: ServiceCategory | ""): ServiceActionType[] {
   if (category === "Karoséria") {
-    return ["Výmena", "Oprava", "Kontrola"]
+    return ["Výmena", "Oprava", "Kontrola", "Diagnostika"]
   }
 
-  return ["Výmena", "Oprava", "Nastavenie", "Kontrola"]
+  return ["Výmena", "Oprava", "Nastavenie", "Kontrola", "Diagnostika"]
+}
+
+export function isDiagnosticAction(action: string) {
+  return action === "Diagnostika"
+}
+
+export function diagnosticScopeText(item: Pick<ServiceItem, "diagnosticScope" | "diagnosticUnit" | "partName">) {
+  if (item.diagnosticScope === "jednotka") {
+    return item.diagnosticUnit || item.partName || "–"
+  }
+
+  if (item.diagnosticScope === "komplexna" || item.partName === "Komplexná diagnostika") {
+    return "Komplexná diagnostika"
+  }
+
+  return item.partName || "–"
+}
+
+export function diagnosticStatusText(resolved?: boolean) {
+  return resolved ? "Vyriešené" : "Nevyriešené"
 }
 
 export function isCustomOperation(category?: ServiceCategory | "", name = "") {
