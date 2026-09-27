@@ -44,10 +44,10 @@ export const chipRangeClass = "bg-[#159DD4]/15 text-[#095A7C]"
 export const iconSize = "1em"
 
 /** Display 18/700 — EČV, Spolu, wordmark */
-export const typeDisplay = "text-left text-lg font-bold text-black"
+export const typeDisplay = "text-left text-lg font-bold leading-tight text-black"
 
 /** Title 16/600 — meno, dátum, hlasná suma */
-export const typeTitle = "text-left text-base font-semibold text-black"
+export const typeTitle = "text-left text-base font-semibold leading-snug text-black"
 
 /** Body 14/400 — bežný text, diel, nákup */
 export const typeBody = "text-left text-sm font-normal text-black"

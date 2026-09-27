@@ -115,10 +115,10 @@ export function HomeScreen() {
           </Button>
         }
       />
-      <main className="mx-auto flex max-w-6xl flex-col gap-4 p-4">
+      <main className="mx-auto flex max-w-6xl flex-col gap-3 p-3">
         <HomeStats vehicles={vehicles.length} visits={records.length} totals={totals} />
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <label className={typeCaption} htmlFor="vehicle-search">
               Hľadať podľa EČV, VIN alebo mena
@@ -220,12 +220,13 @@ export function HomeScreen() {
               const vehicleRecords = records.filter((record) => record.vehicleId === vehicle.id)
               const lastOil = latestOilRecord(vehicleRecords)
               const nextOil = latestOilUpcoming(vehicleRecords)
+              const plate = formatPlate(vehicle.licensePlate)
 
               return (
                 <div
                   key={vehicle.id}
                   className={cn(
-                    "flex items-center gap-3 border-b border-neutral-200 px-4 last:border-b-0",
+                    "flex h-[5.25rem] items-center gap-3 overflow-hidden border-b border-neutral-200 px-4 last:border-b-0",
                     rowHoverClass,
                     index === active && rowActiveClass
                   )}
@@ -233,12 +234,14 @@ export function HomeScreen() {
                 >
                   <Link
                     href={`/vozidlo?id=${vehicle.id}`}
-                    className={cn(listGrid, "min-w-0 flex-1 py-4 text-black no-underline sm:items-center")}
+                    className={cn(listGrid, "min-w-0 flex-1 py-2.5 text-black no-underline sm:items-center")}
                   >
                     <div className="min-w-0 text-left">
                       <div className={`${typeCaption} sm:hidden`}>Vozidlo</div>
-                      <div className={typeDisplay}>{formatPlate(vehicle.licensePlate)}</div>
-                      <div className={typeBody}>{formatVehicleSpec(vehicle)}</div>
+                      <div className={cn(typeDisplay, "truncate", !plate && typeDash)}>
+                        {plate || "–"}
+                      </div>
+                      <div className={cn(typeBody, "truncate")}>{formatVehicleSpec(vehicle)}</div>
                       <div className={cn(typeMeta, "truncate tabular-nums", !vehicle.vin && typeDash)}>
                         {vehicle.vin || "–"}
                       </div>

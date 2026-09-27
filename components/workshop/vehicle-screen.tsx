@@ -99,7 +99,7 @@ export function VehicleScreen() {
     return (
       <div className={cn("min-h-svh text-black", canvasClass)}>
         <AppHeader />
-        <main className="mx-auto flex max-w-6xl flex-col gap-4 p-6">
+        <main className="mx-auto flex max-w-6xl flex-col gap-3 p-3">
           <p className={typeBody}>Vozidlo sa v evidencii nenašlo.</p>
           <Button className={quietButtonClass} nativeButton={false} render={<Link href="/" />}>
             Späť na zoznam
@@ -134,8 +134,8 @@ export function VehicleScreen() {
           </Button>
         }
       />
-      <main className="mx-auto flex max-w-6xl flex-col gap-4 p-4">
-        <section className={cn("flex flex-col rounded-lg p-4 print:hidden", surfaceClass)}>
+      <main className="mx-auto flex max-w-6xl flex-col gap-3 p-3">
+        <section className={cn("flex flex-col rounded-lg p-3 print:hidden", surfaceClass)}>
           <div className={identityGrid}>
             <div className="min-w-0 text-left">
               <div className={typeCaption}>Vozidlo</div>
@@ -166,7 +166,7 @@ export function VehicleScreen() {
               </Button>
             </div>
           </div>
-          <div className={cn(factsGrid, "mt-4 border-t border-neutral-200 pt-4")}>
+          <div className={cn(factsGrid, "mt-3 border-t border-neutral-200 pt-3")}>
             <div className="min-w-0 text-left">
               <div className={typeCaption}>Posledný servis</div>
               <div className={cn(typeMeta, !lastOil && typeDash)}>
@@ -195,7 +195,7 @@ export function VehicleScreen() {
         </section>
 
         <div className={cn("overflow-hidden rounded-lg print:overflow-visible print:border-0", surfaceClass)}>
-          <div className="flex items-center justify-between gap-4 border-b border-neutral-200 px-4 py-4">
+          <div className="flex items-center justify-between gap-3 border-b border-neutral-200 px-3 py-2.5">
             <h2 className={typeTitle}>Servisné zákroky</h2>
             {editingId ? null : (
               <div className="flex flex-wrap items-center justify-end gap-3 print:hidden">
@@ -421,7 +421,14 @@ function HistoryItem({
         data-record=""
         className={cn("border-b border-neutral-200 print:border-0 print:bg-transparent", rowOpenClass)}
       >
-        <div className={cn("relative flex items-center px-4 print:hidden", rowHoverClass, rowOpenClass)}>
+        <div
+          className={cn(
+            "relative flex items-center px-4 print:hidden",
+            !editing && "h-[4rem] overflow-hidden",
+            rowHoverClass,
+            rowOpenClass
+          )}
+        >
           <AccordionTrigger
             headerClassName="min-w-0 w-full"
             className="w-full items-center justify-start gap-3 px-0 text-black hover:bg-transparent hover:no-underline **:data-[slot=accordion-trigger-icon]:ml-0"
@@ -437,7 +444,9 @@ function HistoryItem({
                 </span>
                 <span className="min-w-0 text-left">
                   <span className={`${typeCaption} sm:hidden`}>Kategória</span>
-                  <span className={cn(typeBody, categories === "–" && typeDash)}>{categories}</span>
+                  <span className={cn(typeBody, "block truncate", categories === "–" && typeDash)}>
+                    {categories}
+                  </span>
                 </span>
               </span>
               {hideMoney || customerView ? null : (
