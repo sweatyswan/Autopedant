@@ -466,11 +466,21 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
   const addRecord = useCallback((record: ServiceRecord) => {
     const vehicle = dataRef.current.vehicles.find((item) => item.id === record.vehicleId)
     const customer = dataRef.current.customers.find((item) => item.id === vehicle?.customerId)
+    const stamped =
+      vehicle && !vehicle.firstRegistrationDate && isISODate(record.serviceDate)
+        ? { ...vehicle, firstRegistrationDate: record.serviceDate }
+        : null
     setData((current) => ({
       ...current,
+      vehicles: stamped
+        ? current.vehicles.map((item) => (item.id === stamped.id ? stamped : item))
+        : current.vehicles,
       records: [...current.records, record],
     }))
     persistRecord(record)
+    if (stamped && customer) {
+      persistVehicle(customer, stamped)
+    }
     rememberChange(
       createChange({
         title: "Nový zákrok",
@@ -478,7 +488,7 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
         vehicleId: record.vehicleId,
       })
     )
-  }, [persistRecord, rememberChange])
+  }, [persistRecord, persistVehicle, rememberChange])
 
   const updateRecord = useCallback((record: ServiceRecord) => {
     const previous = dataRef.current.records.find((item) => item.id === record.id)

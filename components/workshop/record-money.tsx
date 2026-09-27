@@ -82,7 +82,7 @@ export function RecordMoneyFields({
   return (
     <div className={cn(totalsGrid, "min-w-0 flex-1")}>
       <div className="flex min-w-0 flex-col gap-1 text-left">
-        <Label className={`${typeCaption} sm:hidden`} htmlFor="inline-labor">
+        <Label className={typeCaption} htmlFor="inline-labor">
           Zárobok za prácu
         </Label>
         <MoneyInput
@@ -93,7 +93,7 @@ export function RecordMoneyFields({
         />
       </div>
       <div className="flex min-w-0 flex-col gap-1 text-left">
-        <Label className={`${typeCaption} sm:hidden`} htmlFor="inline-material">
+        <Label className={typeCaption} htmlFor="inline-material">
           Zárobok na materiáli
         </Label>
         <MoneyInput
@@ -110,7 +110,7 @@ export function RecordMoneyFields({
         />
       </div>
       <div className="flex min-w-0 flex-col gap-1 text-left">
-        <Label className={`${typeCaption} sm:hidden`} htmlFor="inline-billed">
+        <Label className={typeCaption} htmlFor="inline-billed">
           Obrat za servisné zákroky
         </Label>
         <MoneyInput
@@ -143,7 +143,7 @@ function MoneyCell({
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-0.5 text-left">
-      <div className={`${typeCaption} sm:hidden`}>{label}</div>
+      <div className={typeCaption}>{label}</div>
       {children}
     </div>
   )

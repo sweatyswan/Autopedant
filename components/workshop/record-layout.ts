@@ -23,4 +23,6 @@ export const itemGrid =
 export const itemGridEditor =
   "grid grid-cols-1 gap-2 sm:grid-cols-[7.5rem_minmax(0,1.1fr)_minmax(7rem,0.65fr)_minmax(5.5rem,0.5fr)_minmax(6rem,0.55fr)_2rem] sm:items-start sm:gap-4"
 
+export const itemHeaderClass = "hidden border-b border-neutral-200 px-4 py-2 sm:grid"
+
 export const totalsGrid = "grid grid-cols-1 gap-4 sm:grid-cols-3 sm:items-stretch"

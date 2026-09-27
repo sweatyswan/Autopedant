@@ -31,10 +31,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  bandClass,
   fieldClass,
   iconSize,
-  insetClass,
   popoverSurfaceClass,
+  rowActiveClass,
   primaryButtonClass,
   quietButtonClass,
   typeDanger,
@@ -42,7 +43,8 @@ import {
   typeLabel,
   typeTitle,
 } from "@/components/workshop/styles"
-import { formatDisplacement, formatPlate, isISODate, normalizeName, parseDisplacement, todayISO } from "@/lib/format"
+import { formatDisplacement, formatPlate, normalizeName, parseDisplacement } from "@/lib/format"
+import { cn } from "@/lib/utils"
 import { engineDisplacements, fuelTypes, type Customer, type FuelType, type Vehicle } from "@/lib/types"
 import { useWorkshop } from "@/lib/workshop-context"
 
@@ -80,7 +82,6 @@ export function VehicleDialog({
   const [vin, setVin] = useState("")
   const [makeModel, setMakeModel] = useState("")
   const [year, setYear] = useState("")
-  const [firstRegistrationDate, setFirstRegistrationDate] = useState("")
   const [displacement, setDisplacement] = useState("")
   const [fuel, setFuel] = useState<FuelType | "">("")
   const [error, setError] = useState("")
@@ -100,7 +101,6 @@ export function VehicleDialog({
     setVin("")
     setMakeModel("")
     setYear("")
-    setFirstRegistrationDate("")
     setDisplacement("")
     setFuel("")
     setError("")
@@ -124,7 +124,6 @@ export function VehicleDialog({
     setVin(vehicle.vin)
     setMakeModel(vehicle.makeModel)
     setYear(vehicle.year ? String(vehicle.year) : "")
-    setFirstRegistrationDate(vehicle.firstRegistrationDate)
     setDisplacement(vehicle.engineDisplacement ? vehicle.engineDisplacement.toFixed(1) : "")
     setFuel(fuelTypes.includes(vehicle.fuel) ? vehicle.fuel : "")
     setError("")
@@ -189,23 +188,8 @@ export function VehicleDialog({
       return
     }
 
-    if (year.trim()) {
-      if (!Number.isInteger(parsedYear) || parsedYear < 1980 || parsedYear > currentYear + 1) {
-        setError("Zadajte rok výroby.")
-        return
-      }
-    } else if (!editing) {
+    if (!year.trim() || !Number.isInteger(parsedYear) || parsedYear < 1980 || parsedYear > currentYear + 1) {
       setError("Zadajte rok výroby.")
-      return
-    }
-
-    if (firstRegistrationDate) {
-      if (!isISODate(firstRegistrationDate) || firstRegistrationDate > todayISO()) {
-        setError("Zadajte dátum prvej evidencie.")
-        return
-      }
-    } else if (!editing) {
-      setError("Zadajte dátum prvej evidencie.")
       return
     }
 
@@ -228,8 +212,8 @@ export function VehicleDialog({
       licensePlate: formatPlate(plate),
       vin,
       makeModel,
-      year: year.trim() ? parsedYear : 0,
-      firstRegistrationDate,
+      year: parsedYear,
+      firstRegistrationDate: editing && vehicle ? vehicle.firstRegistrationDate : "",
       engineDisplacement: parsedDisplacement,
       fuel,
     }
@@ -266,7 +250,7 @@ export function VehicleDialog({
         onOpenChange(nextOpen)
       }}
     >
-      <DialogContent className={`max-h-[calc(100%-2rem)] overflow-y-auto border border-neutral-200 text-black shadow-[0_1px_2px_rgb(0_0_0/0.04),0_1px_3px_rgb(0_0_0/0.04)] sm:max-w-lg ${insetClass}`}>
+      <DialogContent className={`max-h-[calc(100%-2rem)] overflow-y-auto border border-neutral-200 text-black shadow-[0_1px_2px_rgb(0_0_0/0.04),0_1px_3px_rgb(0_0_0/0.04)] sm:max-w-lg ${rowActiveClass}`}>
         <DialogHeader>
           <DialogTitle className={typeTitle}>{editing ? "Upraviť vozidlo" : "Nové vozidlo"}</DialogTitle>
         </DialogHeader>
@@ -356,7 +340,7 @@ export function VehicleDialog({
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label className={typeLabel} htmlFor="plate">
                 EČV
@@ -374,7 +358,8 @@ export function VehicleDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label className={typeLabel} htmlFor="year">
-                Rok
+                Rok výroby
+                <RequiredMark />
               </Label>
               <Input
                 id="year"
@@ -383,21 +368,7 @@ export function VehicleDialog({
                 onChange={(event) => setYear(event.target.value)}
                 placeholder="Napr. 2018"
                 inputMode="numeric"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label className={typeLabel} htmlFor="first-registration">
-                Prvá evidencia
-                {editing ? null : <RequiredMark />}
-              </Label>
-              <Input
-                id="first-registration"
-                type="date"
-                className={fieldClass}
-                value={firstRegistrationDate}
-                onChange={(event) => setFirstRegistrationDate(event.target.value)}
-                max={todayISO()}
-                required={!editing}
+                required
               />
             </div>
           </div>
@@ -495,7 +466,7 @@ export function VehicleDialog({
 
           {error ? <p className={typeError}>{error}</p> : null}
 
-          <DialogFooter className="border-neutral-200 sm:justify-end">
+          <DialogFooter className={cn("border-neutral-200 sm:justify-end", bandClass)}>
             <Button type="button" className={quietButtonClass} onClick={close}>
               Zrušiť
               <X size={iconSize} />

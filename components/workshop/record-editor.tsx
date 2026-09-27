@@ -227,19 +227,11 @@ export function RecordEditor({
       </div>
 
       <div className={cn("overflow-hidden rounded-lg border border-neutral-200 print:bg-white", insetClass)}>
-        <div className={cn("hidden border-b border-neutral-200 px-4 py-2 sm:grid", itemGridEditor)}>
-          <div className={typeCaption}>Úkon</div>
-          <div className={typeCaption}>Náhradný diel</div>
-          <div className={typeCaption}>Typ materiálu</div>
-          <div className={typeCaption}>Množstvo</div>
-          <div className={typeCaption}>Značka</div>
-          <div />
-        </div>
         <div className="divide-y divide-neutral-200">
           {items.map((item) => (
             <div key={item.key} className={cn("px-4 py-3", itemGridEditor)}>
-              <div className="min-w-0 text-left">
-                <div className={`${typeCaption} sm:hidden`}>Úkon</div>
+              <div className="flex min-w-0 flex-col gap-1 text-left">
+                <div className={typeCaption}>Úkon</div>
                 <Select
                   value={item.actionType || null}
                   onValueChange={(value) => {
@@ -249,7 +241,7 @@ export function RecordEditor({
                   }}
                 >
                   <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
-                    <SelectValue placeholder="Úkon" />
+                    <SelectValue placeholder="Zvoľte úkon" />
                   </SelectTrigger>
                   <SelectContent className={popoverSurfaceClass}>
                     {actionsFor(item.category).map((action) => (
@@ -261,7 +253,7 @@ export function RecordEditor({
                 </Select>
               </div>
               <div className="flex min-w-0 flex-col gap-2 text-left">
-                <div className={`${typeCaption} sm:hidden`}>Kategória</div>
+                <div className={typeCaption}>Kategória</div>
                 <Select
                   value={item.category || null}
                   onValueChange={(value) => {
@@ -282,7 +274,7 @@ export function RecordEditor({
                   }}
                 >
                   <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
-                    <SelectValue placeholder="Kategória" />
+                    <SelectValue placeholder="Zvoľte kategóriu" />
                   </SelectTrigger>
                   <SelectContent className={popoverSurfaceClass}>
                     {serviceCategories.map((category) => (
@@ -292,7 +284,7 @@ export function RecordEditor({
                     ))}
                   </SelectContent>
                 </Select>
-                <div className={`${typeCaption} sm:hidden`}>Náhradný diel</div>
+                <div className={typeCaption}>Náhradný diel</div>
                 <Select
                   value={item.operation || null}
                   disabled={!item.category}
@@ -303,7 +295,7 @@ export function RecordEditor({
                   }}
                 >
                   <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
-                    <SelectValue placeholder="Náhradný diel" />
+                    <SelectValue placeholder={item.category ? "Zvoľte náhradný diel" : "Najprv zvoľte kategóriu"} />
                   </SelectTrigger>
                   <SelectContent className={popoverSurfaceClass}>
                     {operationsFor(item.category).map((operation) => (
@@ -318,21 +310,21 @@ export function RecordEditor({
                     className={fieldClass}
                     value={item.detail}
                     onChange={(event) => updateItem(item.key, { detail: event.target.value })}
-                    placeholder="Názov dielu"
+                    placeholder="Zadajte názov dielu"
                   />
                 ) : null}
               </div>
-              <div className="min-w-0 text-left">
-                <div className={`${typeCaption} sm:hidden`}>Typ materiálu</div>
+              <div className="flex min-w-0 flex-col gap-1 text-left">
+                <div className={typeCaption}>Typ materiálu</div>
                 <Input
                   className={fieldClass}
                   value={item.materialType}
                   onChange={(event) => updateItem(item.key, { materialType: event.target.value })}
-                  placeholder="Napr. 5W-30"
+                  placeholder="Napr. originálny diel"
                 />
               </div>
-              <div className="min-w-0 text-left">
-                <div className={`${typeCaption} sm:hidden`}>Množstvo</div>
+              <div className="flex min-w-0 flex-col gap-1 text-left">
+                <div className={typeCaption}>Množstvo</div>
                 <Input
                   className={fieldClass}
                   value={item.quantity}
@@ -340,8 +332,8 @@ export function RecordEditor({
                   placeholder="Napr. 5 l, 2 ks"
                 />
               </div>
-              <div className="min-w-0 text-left">
-                <div className={`${typeCaption} sm:hidden`}>Značka</div>
+              <div className="flex min-w-0 flex-col gap-1 text-left">
+                <div className={typeCaption}>Značka</div>
                 <Input
                   className={fieldClass}
                   value={item.partBrand}

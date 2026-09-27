@@ -33,6 +33,7 @@ import {
   historyIdentityCols,
   historySplitClass,
   itemGrid,
+  itemHeaderClass,
   noteToLaborClass,
   totalsGrid,
 } from "@/components/workshop/record-layout"
@@ -246,23 +247,6 @@ export function VehicleScreen() {
                 setOpenRecords(next)
               }}
             >
-              <div className="hidden items-center gap-3 border-b border-neutral-200 px-4 py-2 sm:flex print:hidden">
-                <div className={historySplitClass}>
-                  <div className={historyIdentityCols}>
-                    <div className={typeCaption}>Dátum</div>
-                    <div className={typeCaption}>Kategória</div>
-                  </div>
-                  {hideMoney ? null : (
-                    <div className="grid min-w-0 flex-[2.55_1_0%] grid-cols-3 gap-4">
-                      <div className={typeCaption}>Zárobok za prácu</div>
-                      <div className={typeCaption}>Zárobok na materiáli</div>
-                      <div className={typeCaption}>Obrat za servisné zákroky</div>
-                    </div>
-                  )}
-                </div>
-                <div className={historyActionClass} />
-                <div className={historyChevronClass} />
-              </div>
               {editingId === NEW_RECORD_ID ? (
                 <HistoryItem
                   id={NEW_RECORD_ID}
@@ -424,7 +408,7 @@ function HistoryItem({
         <div
           className={cn(
             "relative flex items-center px-4 print:hidden",
-            !editing && "h-[4rem] overflow-hidden",
+            !editing && "h-[5.25rem] overflow-hidden",
             rowHoverClass,
             rowOpenClass
           )}
@@ -443,7 +427,7 @@ function HistoryItem({
                   </span>
                 </span>
                 <span className="min-w-0 text-left">
-                  <span className={`${typeCaption} sm:hidden`}>Kategória</span>
+                  <span className={typeCaption}>Kategória</span>
                   <span className={cn(typeBody, "block truncate", categories === "–" && typeDash)}>
                     {categories}
                   </span>
@@ -590,7 +574,7 @@ function RecordDetails({
             customerView && accentBarClass
           )}
         >
-          <div className={cn("hidden border-b border-neutral-200 px-4 py-2 sm:grid", itemGrid)}>
+          <div className={cn(itemHeaderClass, itemGrid)}>
             <div className={typeCaption}>Úkon</div>
             <div className={typeCaption}>Náhradný diel</div>
             <div className={typeCaption}>Typ materiálu</div>
