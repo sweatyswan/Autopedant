@@ -12,6 +12,16 @@ import {
 
 import { canvasClass } from "@/components/workshop/styles"
 import { useAuth } from "@/lib/auth-context"
+import {
+  createChange,
+  mergeChanges,
+  readLocalChanges,
+  recordChangeDetail,
+  recordChangeNote,
+  vehicleChangeDetail,
+  writeLocalChanges,
+  type ChangeEvent,
+} from "@/lib/change-log"
 import { formatPlate, isISODate, normalizeCode } from "@/lib/format"
 import { normalizeCategory } from "@/lib/service-catalog"
 import { addMissingRecords, mergeDuplicateCustomers, workshopIdentity } from "@/lib/customer-merge"
@@ -19,9 +29,12 @@ import { emptyWorkshop, stripDemoWorkshop } from "@/lib/seed"
 import { getSupabase } from "@/lib/supabase"
 import {
   cloudErrorMessage,
+  loadChangeEvents,
   loadWorkshop,
   purgeWorkshopIds,
   pushWorkshop,
+  deleteRecordRow,
+  saveChangeEvent,
   saveCustomerAndVehicle,
   saveRecord,
 } from "@/lib/workshop-cloud"
@@ -48,10 +61,12 @@ type WorkshopContextValue = {
   customers: Customer[]
   vehicles: Vehicle[]
   records: ServiceRecord[]
+  changes: ChangeEvent[]
   cloudError: string
   addVehicle: (input: NewVehicleInput) => { ok: true; id: string } | { ok: false; message: string }
   addRecord: (record: ServiceRecord) => void
   updateRecord: (record: ServiceRecord) => void
+  deleteRecord: (recordId: string) => void
 }
 
 const WorkshopContext = createContext<WorkshopContextValue | null>(null)
@@ -131,10 +146,13 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
   const { configured, session } = useAuth()
   const userId = session?.user.id
   const [data, setData] = useState<WorkshopData>(emptyWorkshop)
+  const [changes, setChanges] = useState<ChangeEvent[]>([])
   const [ready, setReady] = useState(false)
   const [cloudError, setCloudError] = useState("")
   const dataRef = useRef(data)
+  const changesRef = useRef(changes)
   dataRef.current = data
+  changesRef.current = changes
 
   useEffect(() => {
     let active = true
@@ -150,6 +168,7 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
           return
         }
         setData(prepared ?? emptyWorkshop)
+        setChanges(readLocalChanges())
         setCloudError("")
         setReady(true)
         return
@@ -160,6 +179,8 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
         if (!active) {
           return
         }
+
+        let mergedCards = false
 
         if (!isPopulated(remote)) {
           const prepared = local ?? (await loadPreparedImport())
@@ -183,8 +204,8 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
               migrated = addMissingRecords(migrated, prepared)
             }
           }
-          const changed = workshopIdentity(remote) !== workshopIdentity(migrated)
-          if (changed) {
+          mergedCards = workshopIdentity(remote) !== workshopIdentity(migrated)
+          if (mergedCards) {
             const keptCustomers = new Set(migrated.customers.map((customer) => customer.id))
             const keptVehicles = new Set(migrated.vehicles.map((vehicle) => vehicle.id))
             await pushWorkshop(client, userId, migrated)
@@ -200,6 +221,22 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
           setData(migrated)
         }
 
+        const localChanges = readLocalChanges()
+        let nextChanges = localChanges
+        try {
+          nextChanges = mergeChanges(localChanges, await loadChangeEvents(client))
+        } catch {
+          nextChanges = localChanges
+        }
+        if (mergedCards) {
+          nextChanges = mergeChanges(nextChanges, [
+            createChange({
+              title: "Zlúčené karty",
+              detail: "Duplicitné mená a preklepy v evidencii.",
+            }),
+          ])
+        }
+        setChanges(nextChanges)
         setCloudError("")
       } catch (error) {
         if (!active) {
@@ -207,6 +244,7 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
         }
 
         setData(local ?? emptyWorkshop)
+        setChanges(readLocalChanges())
         setCloudError(cloudErrorMessage(error))
       } finally {
         if (active) {
@@ -231,6 +269,30 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   }, [data, ready])
 
+  useEffect(() => {
+    if (!ready) {
+      return
+    }
+
+    writeLocalChanges(changes)
+  }, [changes, ready])
+
+  const rememberChange = useCallback(
+    (change: ChangeEvent) => {
+      setChanges((current) => mergeChanges([change], current))
+      const client = getSupabase()
+      if (!client || !userId) {
+        return
+      }
+
+      void saveChangeEvent(client, userId, change).then(
+        () => setCloudError(""),
+        (error) => setCloudError(cloudErrorMessage(error))
+      )
+    },
+    [userId]
+  )
+
   const persistVehicle = useCallback(
     (customer: Customer, vehicle: Vehicle) => {
       const client = getSupabase()
@@ -254,6 +316,21 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
       }
 
       void saveRecord(client, userId, record).then(
+        () => setCloudError(""),
+        (error) => setCloudError(cloudErrorMessage(error))
+      )
+    },
+    [userId]
+  )
+
+  const persistRecordDelete = useCallback(
+    (recordId: string) => {
+      const client = getSupabase()
+      if (!client || !userId) {
+        return
+      }
+
+      void deleteRecordRow(client, recordId).then(
         () => setCloudError(""),
         (error) => setCloudError(cloudErrorMessage(error))
       )
@@ -305,25 +382,74 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
       records: current.records,
     }))
     persistVehicle(customer, vehicle)
+    rememberChange(
+      createChange({
+        title: "Nové vozidlo",
+        detail: vehicleChangeDetail(customer, vehicle),
+        vehicleId,
+      })
+    )
 
     return { ok: true as const, id: vehicleId }
-  }, [persistVehicle])
+  }, [persistVehicle, rememberChange])
 
   const addRecord = useCallback((record: ServiceRecord) => {
+    const vehicle = dataRef.current.vehicles.find((item) => item.id === record.vehicleId)
+    const customer = dataRef.current.customers.find((item) => item.id === vehicle?.customerId)
     setData((current) => ({
       ...current,
       records: [...current.records, record],
     }))
     persistRecord(record)
-  }, [persistRecord])
+    rememberChange(
+      createChange({
+        title: "Nový zákrok",
+        detail: recordChangeDetail(customer, vehicle, record),
+        vehicleId: record.vehicleId,
+      })
+    )
+  }, [persistRecord, rememberChange])
 
   const updateRecord = useCallback((record: ServiceRecord) => {
+    const previous = dataRef.current.records.find((item) => item.id === record.id)
+    const vehicle = dataRef.current.vehicles.find((item) => item.id === record.vehicleId)
+    const customer = dataRef.current.customers.find((item) => item.id === vehicle?.customerId)
+    const note = recordChangeNote(previous, record)
     setData((current) => ({
       ...current,
       records: current.records.map((item) => (item.id === record.id ? record : item)),
     }))
     persistRecord(record)
-  }, [persistRecord])
+    rememberChange(
+      createChange({
+        title: "Upravený zákrok",
+        detail: [recordChangeDetail(customer, vehicle, record), note].filter(Boolean).join(" · "),
+        vehicleId: record.vehicleId,
+      })
+    )
+  }, [persistRecord, rememberChange])
+
+  const deleteRecord = useCallback((recordId: string) => {
+    const record = dataRef.current.records.find((item) => item.id === recordId)
+    if (!record) {
+      return
+    }
+
+    const vehicle = dataRef.current.vehicles.find((item) => item.id === record.vehicleId)
+    const customer = dataRef.current.customers.find((item) => item.id === vehicle?.customerId)
+    setData((current) => ({
+      ...current,
+      records: current.records.filter((item) => item.id !== recordId),
+    }))
+    persistRecordDelete(recordId)
+    rememberChange(
+      createChange({
+        title: "Odstránený zákrok",
+        detail: recordChangeDetail(customer, vehicle, record),
+        vehicleId: record.vehicleId,
+      })
+    )
+  }, [persistRecordDelete, rememberChange])
 
   const value = useMemo<WorkshopContextValue>(
     () => ({
@@ -331,12 +457,14 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
       customers: data.customers,
       vehicles: data.vehicles,
       records: data.records,
+      changes,
       cloudError,
       addVehicle,
       addRecord,
       updateRecord,
+      deleteRecord,
     }),
-    [addRecord, addVehicle, cloudError, updateRecord, data, ready]
+    [addRecord, addVehicle, changes, cloudError, deleteRecord, updateRecord, data, ready]
   )
 
   return (

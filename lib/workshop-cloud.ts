@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import type { ChangeEvent } from "@/lib/change-log"
 import type { Customer, ServiceItem, ServiceRecord, Vehicle, WorkshopData } from "@/lib/types"
 
 type CustomerRow = {
@@ -244,6 +245,13 @@ export async function saveCustomerAndVehicle(
   }
 }
 
+export async function deleteRecordRow(client: SupabaseClient, recordId: string) {
+  const { error } = await client.from("records").delete().eq("id", recordId)
+  if (error) {
+    throw error
+  }
+}
+
 export async function saveRecord(client: SupabaseClient, userId: string, record: ServiceRecord) {
   const recordWrite = await client.from("records").upsert(recordRow(userId, record))
   if (recordWrite.error) {
@@ -283,6 +291,44 @@ export async function purgeWorkshopIds(
     if (error) {
       throw error
     }
+  }
+}
+
+export async function loadChangeEvents(client: SupabaseClient): Promise<ChangeEvent[]> {
+  const { data, error } = await client
+    .from("change_events")
+    .select("id, at, title, detail, vehicle_id")
+    .order("at", { ascending: false })
+    .limit(200)
+
+  if (error) {
+    if (/change_events|schema cache|does not exist/i.test(error.message)) {
+      return []
+    }
+    throw error
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    at: row.at,
+    title: row.title,
+    detail: row.detail ?? "",
+    vehicleId: row.vehicle_id || undefined,
+  }))
+}
+
+export async function saveChangeEvent(client: SupabaseClient, userId: string, change: ChangeEvent) {
+  const { error } = await client.from("change_events").upsert({
+    id: change.id,
+    user_id: userId,
+    at: change.at,
+    title: change.title,
+    detail: change.detail,
+    vehicle_id: change.vehicleId ?? null,
+  })
+
+  if (error && !/change_events|schema cache|does not exist/i.test(error.message)) {
+    throw error
   }
 }
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { ArrowLeft, FileArrowDown, Pen, Plus } from "@keyline-icons/react"
+import { ArrowLeft, Bin, FileArrowDown, Pen, Plus } from "@keyline-icons/react"
 
 import {
   Accordion,
@@ -11,6 +11,16 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { ActionBadge } from "@/components/workshop/action-badge"
@@ -42,6 +52,7 @@ import {
   accentBarClass,
   typeBody,
   typeCaption,
+  typeDanger,
   typeDash,
   typeDisplay,
   typeLabel,
@@ -52,7 +63,7 @@ import {
 } from "@/components/workshop/styles"
 import { formatDate, formatKm, formatMoney, formatNextService, formatPlate, formatVehicleSpec, parseKm } from "@/lib/format"
 import { recordTotals, type MoneyTotals } from "@/lib/finance"
-import { downloadVisitPdf } from "@/lib/visit-pdf"
+import { downloadHistoryPdf, downloadVisitPdf } from "@/lib/visit-pdf"
 import { latestOilRecord, latestOilUpcoming } from "@/lib/list-query"
 import { serviceCategories, type Customer, type ServiceRecord, type Vehicle } from "@/lib/types"
 import { useWorkshop } from "@/lib/workshop-context"
@@ -65,11 +76,12 @@ const factsGrid = "grid grid-cols-2 gap-4 sm:grid-cols-5"
 export function VehicleScreen() {
   const searchParams = useSearchParams()
   const vehicleId = searchParams.get("id")
-  const { customers, vehicles, records } = useWorkshop()
+  const { customers, vehicles, records, deleteRecord } = useWorkshop()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [openRecords, setOpenRecords] = useState<string[]>([])
   const [draftPreview, setDraftPreview] = useState<RecordDraftPreview | null>(null)
   const [customerFacing, setCustomerFacing] = useState(0)
+  const [savingHistory, setSavingHistory] = useState(false)
   const hideMoney = customerFacing > 0
   const bumpCustomerFacing = useCallback((on: boolean) => {
     setCustomerFacing((count) => count + (on ? 1 : -1))
@@ -173,10 +185,37 @@ export function VehicleScreen() {
           <div className="flex items-center justify-between gap-4 border-b border-neutral-200 px-4 py-4">
             <h2 className={typeTitle}>Servisné zákroky</h2>
             {editingId ? null : (
-              <Button className={`${primaryButtonClass} print:hidden`} onClick={startNewRecord}>
-                Nový záznam
-                <Plus size={iconSize} />
-              </Button>
+              <div className="flex flex-wrap items-center justify-end gap-3 print:hidden">
+                {history.length ? (
+                  <Button
+                    type="button"
+                    className={quietButtonClass}
+                    disabled={savingHistory}
+                    onClick={async () => {
+                      if (savingHistory) {
+                        return
+                      }
+                      setSavingHistory(true)
+                      try {
+                        await downloadHistoryPdf({
+                          records: history,
+                          vehicle,
+                          customer,
+                        })
+                      } finally {
+                        setSavingHistory(false)
+                      }
+                    }}
+                  >
+                    Uložiť históriu
+                    <FileArrowDown size={iconSize} />
+                  </Button>
+                ) : null}
+                <Button className={primaryButtonClass} onClick={startNewRecord}>
+                  Nový záznam
+                  <Plus size={iconSize} />
+                </Button>
+              </div>
             )}
           </div>
           {history.length === 0 && editingId !== NEW_RECORD_ID ? (
@@ -267,6 +306,12 @@ export function VehicleScreen() {
                       setDraftPreview(null)
                       setOpenRecords((current) => [record.id, ...current.filter((id) => id !== record.id)])
                     }}
+                    onDelete={() => {
+                      deleteRecord(record.id)
+                      setEditingId((current) => (current === record.id ? null : current))
+                      setDraftPreview(null)
+                      setOpenRecords((current) => current.filter((id) => id !== record.id))
+                    }}
                   >
                     {editing ? (
                       <RecordEditor
@@ -280,7 +325,12 @@ export function VehicleScreen() {
                         }}
                       />
                     ) : (
-                      <RecordDetails record={record} vehicle={vehicle} customer={customer} money={money} />
+                      <RecordDetails
+                        record={record}
+                        vehicle={vehicle}
+                        customer={customer}
+                        money={money}
+                      />
                     )}
                   </HistoryItem>
                 )
@@ -305,6 +355,7 @@ function HistoryItem({
   hideMoney,
   onCustomerFacing,
   onEdit,
+  onDelete,
   children,
 }: {
   id: string
@@ -318,6 +369,7 @@ function HistoryItem({
   hideMoney?: boolean
   onCustomerFacing?: (on: boolean) => void
   onEdit?: () => void
+  onDelete?: () => void
   children: ReactNode
 }) {
   const [customerView, setCustomerView] = useState(false)
@@ -400,11 +452,14 @@ function HistoryItem({
             </div>
           ) : null}
           {onEdit && !editing ? (
-            <div className={`absolute top-1/2 right-11 -translate-y-1/2 ${historyActionClass}`}>
-              <Button type="button" className={`${quietButtonClass} w-full`} onClick={onEdit}>
-                Upraviť
-                <Pen size={iconSize} />
-              </Button>
+            <div className="absolute top-1/2 right-11 z-10 flex -translate-y-1/2 items-center gap-2">
+              {onDelete ? <DeleteVisitButton dateLabel={dateLabel} onDelete={onDelete} compact /> : null}
+              <div className={historyActionClass}>
+                <Button type="button" className={`${quietButtonClass} w-full`} onClick={onEdit}>
+                  Upraviť
+                  <Pen size={iconSize} />
+                </Button>
+              </div>
             </div>
           ) : (
             <div className={`absolute top-1/2 right-11 -translate-y-1/2 ${historyActionClass}`} />
@@ -625,6 +680,59 @@ function TotalCell({
       <div className={labelClass}>{label}</div>
       {children}
     </div>
+  )
+}
+
+function DeleteVisitButton({
+  dateLabel,
+  onDelete,
+  compact,
+}: {
+  dateLabel: string
+  onDelete: () => void
+  compact?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <Button
+        type="button"
+        className={cn(quietButtonClass, typeDanger, compact && "px-2")}
+        aria-label="Odstrániť"
+        onClick={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          setOpen(true)
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        {compact ? null : "Odstrániť"}
+        <Bin size={iconSize} />
+      </Button>
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Odstrániť zákrok?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Záznam z {dateLabel} sa odstráni z evidencie.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className={quietButtonClass}>Zrušiť</AlertDialogCancel>
+            <AlertDialogAction
+              className={cn(quietButtonClass, typeDanger)}
+              onClick={() => {
+                onDelete()
+                setOpen(false)
+              }}
+            >
+              Odstrániť
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 

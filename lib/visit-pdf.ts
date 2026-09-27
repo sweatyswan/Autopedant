@@ -402,3 +402,115 @@ export async function downloadVisitPdf({
   const blob = new Blob([new Uint8Array(await pdf.save())], { type: "application/pdf" })
   await savePdfBlob(blob, filename)
 }
+
+function visitCountLabel(count: number) {
+  const tens = count % 100
+  const ones = count % 10
+  if (count === 1) {
+    return "1 zákrok"
+  }
+  if (ones >= 2 && ones <= 4 && (tens < 10 || tens >= 20)) {
+    return `${count} zákroky`
+  }
+  return `${count} zákrokov`
+}
+
+function itemLine(item: ServiceRecord["items"][number]) {
+  return [item.actionType, item.partName || item.category, item.quantity, item.materialType, item.partBrand]
+    .filter((part) => part && part !== "–")
+    .join(" · ")
+}
+
+export async function downloadHistoryPdf({
+  records,
+  vehicle,
+  customer,
+}: {
+  records: ServiceRecord[]
+  vehicle: Vehicle
+  customer: Customer
+}) {
+  const bytes = await loadFonts()
+  const pdf = await PDFDocument.create()
+  pdf.registerFontkit(fontkit)
+  const fonts: Fonts = {
+    regular: await pdf.embedFont(bytes.regular, { subset: true }),
+    semibold: await pdf.embedFont(bytes.semibold, { subset: true }),
+  }
+  const writer = new PdfWriter(pdf)
+  const history = [...records].sort(
+    (left, right) => left.serviceDate.localeCompare(right.serviceDate) || left.mileage - right.mileage
+  )
+  const last = history[history.length - 1]
+
+  writer.block(margin, contentWidth, [
+    { text: "Autopedant", font: fonts.regular, size: captionSize, color: muted },
+  ])
+  writer.y -= 2
+  writer.block(margin, contentWidth, [{ text: "Servisná história", font: fonts.semibold, size: displaySize }])
+  writer.y -= 8
+
+  const columnWidth = (contentWidth - 16) / 2
+  const left: TextLine[] = [
+    { text: formatPlate(vehicle.licensePlate) || vehicle.makeModel, font: fonts.semibold, size: titleSize },
+    { text: formatVehicleSpec(vehicle), font: fonts.regular, size: bodySize },
+    { text: vehicle.vin || "–", font: fonts.regular, size: bodySize, color: muted },
+  ]
+  const right: TextLine[] = [
+    { text: customer.name || "–", font: fonts.semibold, size: titleSize },
+    { text: customer.phone || "–", font: fonts.regular, size: bodySize, color: muted },
+    { text: customer.email || "–", font: fonts.regular, size: bodySize, color: muted },
+  ]
+  const pairHeight = Math.max(measureLines(left, columnWidth), measureLines(right, columnWidth))
+  writer.ensure(pairHeight)
+  const pairTop = writer.y
+  writer.block(margin, columnWidth, left)
+  writer.y = pairTop
+  writer.block(margin + columnWidth + 16, columnWidth, right)
+  writer.y = pairTop - pairHeight - 8
+
+  writer.block(margin, contentWidth, [
+    {
+      text: last
+        ? `${visitCountLabel(history.length)} · Posledný servis ${formatDate(last.serviceDate)} · ${formatKm(last.mileage)}`
+        : "Žiadny servisný záznam",
+      font: fonts.regular,
+      size: bodySize,
+      color: muted,
+    },
+  ])
+  writer.y -= 6
+
+  for (const record of history) {
+    const nextService = formatNextService(record)
+    const note = record.mechanicNotes.trim()
+    const items = record.items.map((item) => itemLine(item)).filter(Boolean)
+    const visitLines: TextLine[] = [
+      {
+        text: `${formatDate(record.serviceDate)} · ${formatKm(record.mileage)}`,
+        font: fonts.semibold,
+        size: titleSize,
+      },
+      ...items.map((text) => ({ text, font: fonts.regular, size: bodySize })),
+    ]
+    if (nextService) {
+      visitLines.push({ text: `Ďalší servis ${nextService}`, font: fonts.regular, size: captionSize, color: muted })
+    }
+    if (note) {
+      visitLines.push({ text: note, font: fonts.regular, size: bodySize })
+    }
+
+    const blockHeight = measureLines(visitLines, contentWidth) + 16
+    writer.ensure(blockHeight)
+    if (writer.y < pageHeight - margin - 2) {
+      writer.rule()
+      writer.y -= 8
+    }
+    writer.block(margin, contentWidth, visitLines)
+    writer.y -= 6
+  }
+
+  const name = formatPlate(vehicle.licensePlate) || vehicle.makeModel
+  const blob = new Blob([new Uint8Array(await pdf.save())], { type: "application/pdf" })
+  await savePdfBlob(blob, `${name} servisna-historia.pdf`)
+}

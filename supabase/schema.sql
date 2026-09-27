@@ -82,3 +82,22 @@ create policy records_own on public.records
 drop policy if exists record_items_own on public.record_items;
 create policy record_items_own on public.record_items
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create table if not exists public.change_events (
+  id text primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  at timestamptz not null,
+  title text not null,
+  detail text not null default '',
+  vehicle_id text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists change_events_user_id_idx on public.change_events (user_id);
+create index if not exists change_events_at_idx on public.change_events (user_id, at desc);
+
+alter table public.change_events enable row level security;
+
+drop policy if exists change_events_own on public.change_events;
+create policy change_events_own on public.change_events
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

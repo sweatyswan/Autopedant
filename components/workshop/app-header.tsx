@@ -3,6 +3,7 @@
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
+import { ChangeHistoryButton } from "@/components/workshop/change-history"
 import { quietButtonClass, typeCaption, typeDisplay, typeMeta } from "@/components/workshop/styles"
 import { useAuth } from "@/lib/auth-context"
 import { useWorkshop } from "@/lib/workshop-context"
@@ -21,11 +22,14 @@ export function AppHeader({ actions }: { actions?: React.ReactNode }) {
         </Link>
         <div className="flex flex-wrap items-center gap-4">
           {actions}
-          {configured && session ? (
-            <Button type="button" className={quietButtonClass} onClick={() => void signOut()}>
-              Odhlásiť sa
-            </Button>
-          ) : null}
+          <div className="flex items-center gap-4">
+            <ChangeHistoryButton />
+            {configured && session ? (
+              <Button type="button" className={quietButtonClass} onClick={() => void signOut()}>
+                Odhlásiť sa
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
     </header>
