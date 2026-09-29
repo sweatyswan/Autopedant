@@ -6,13 +6,15 @@ import { sk } from "date-fns/locale"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { FieldError, fieldDescribedBy } from "@/components/workshop/field-error"
 import {
   controlHoverClass,
   fieldClass,
+  hitAreaClass,
   popoverSurfaceClass,
   quietButtonClass,
-  typeCaption,
   typeDash,
+  typeLabel,
 } from "@/components/workshop/styles"
 import { formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -40,6 +42,7 @@ export function DateField({
   onChange,
   allowClear = false,
   autoFocus = false,
+  error,
 }: {
   id: string
   label: string
@@ -47,24 +50,29 @@ export function DateField({
   onChange: (next: string) => void
   allowClear?: boolean
   autoFocus?: boolean
+  error?: string
 }) {
   const [open, setOpen] = useState(false)
   const selected = value ? parseIsoDate(value) : undefined
   const now = new Date()
 
   return (
+    <div className="flex min-w-0 w-full flex-col gap-1">
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         id={id}
         autoFocus={autoFocus}
         className="flex min-w-0 w-full flex-col gap-1 rounded-none border-0 bg-transparent p-0 text-left font-normal text-black shadow-none outline-none hover:bg-transparent focus-visible:[&_[data-slot=date-value]]:border-ring focus-visible:[&_[data-slot=date-value]]:ring-3 focus-visible:[&_[data-slot=date-value]]:ring-ring/50"
+        aria-invalid={Boolean(error)}
+        aria-describedby={fieldDescribedBy(`${id}-error`, error)}
       >
-        <span className={typeCaption}>{label}</span>
+        <span className={typeLabel}>{label}</span>
         <span
           data-slot="date-value"
           className={cn(
             fieldClass,
             controlHoverClass,
+            hitAreaClass,
             "inline-flex h-8 w-full min-w-0 items-center rounded-lg border px-2.5 text-sm",
             !value && typeDash
           )}
@@ -119,5 +127,7 @@ export function DateField({
         ) : null}
       </PopoverContent>
     </Popover>
+      <FieldError id={`${id}-error`}>{error}</FieldError>
+    </div>
   )
 }

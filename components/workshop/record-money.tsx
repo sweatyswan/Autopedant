@@ -4,6 +4,7 @@ import { createContext, useContext, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 
 import { Label } from "@/components/ui/label"
+import { FieldError, fieldDescribedBy } from "@/components/workshop/field-error"
 import { MoneyInput } from "@/components/workshop/money-input"
 import { totalsGrid } from "@/components/workshop/record-layout"
 import {
@@ -11,6 +12,7 @@ import {
   typeAccent,
   typeCaption,
   typeDanger,
+  typeLabel,
   typeTone,
   typeDisplay,
   typeTabular,
@@ -69,6 +71,7 @@ export function RecordMoneyFields({
   onLaborChange,
   onMaterialChange,
   onBilledChange,
+  errors,
 }: {
   laborCost: string
   materialEarnings: string
@@ -78,11 +81,16 @@ export function RecordMoneyFields({
   onLaborChange: (value: string) => void
   onMaterialChange: (value: string) => void
   onBilledChange: (value: string) => void
+  errors?: {
+    labor?: string
+    material?: string
+    billed?: string
+  }
 }) {
   return (
     <div className={cn(totalsGrid, "min-w-0 flex-1")}>
       <div className="flex min-w-0 flex-col gap-1 text-left">
-        <Label className={typeCaption} htmlFor="inline-labor">
+        <Label className={typeLabel} htmlFor="inline-labor">
           Zárobok za prácu
         </Label>
         <MoneyInput
@@ -90,10 +98,13 @@ export function RecordMoneyFields({
           className={cn(fieldClass, typeTitle, "text-left", labor > 0 && typeAccent)}
           value={laborCost}
           onValueChange={onLaborChange}
+          aria-invalid={Boolean(errors?.labor)}
+          aria-describedby={fieldDescribedBy("inline-labor-error", errors?.labor)}
         />
+        <FieldError id="inline-labor-error">{errors?.labor}</FieldError>
       </div>
       <div className="flex min-w-0 flex-col gap-1 text-left">
-        <Label className={typeCaption} htmlFor="inline-material">
+        <Label className={typeLabel} htmlFor="inline-material">
           Zárobok na materiáli
         </Label>
         <MoneyInput
@@ -107,10 +118,13 @@ export function RecordMoneyFields({
           )}
           value={materialEarnings}
           onValueChange={onMaterialChange}
+          aria-invalid={Boolean(errors?.material)}
+          aria-describedby={fieldDescribedBy("inline-material-error", errors?.material)}
         />
+        <FieldError id="inline-material-error">{errors?.material}</FieldError>
       </div>
       <div className="flex min-w-0 flex-col gap-1 text-left">
-        <Label className={typeCaption} htmlFor="inline-billed">
+        <Label className={typeLabel} htmlFor="inline-billed">
           Hodnota zákroku
         </Label>
         <MoneyInput
@@ -118,7 +132,10 @@ export function RecordMoneyFields({
           className={cn(fieldClass, typeDisplay, "text-left")}
           value={billedAmount}
           onValueChange={onBilledChange}
+          aria-invalid={Boolean(errors?.billed)}
+          aria-describedby={fieldDescribedBy("inline-billed-error", errors?.billed)}
         />
+        <FieldError id="inline-billed-error">{errors?.billed}</FieldError>
       </div>
     </div>
   )

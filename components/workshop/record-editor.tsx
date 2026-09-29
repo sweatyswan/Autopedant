@@ -34,12 +34,13 @@ import {
   iconSize,
   primaryButtonClass,
   quietButtonClass,
-  typeCaption,
   typeDanger,
   typeError,
+  typeLabel,
 } from "@/components/workshop/styles"
 import { DateField } from "@/components/workshop/date-field"
 import { DiagnosticReportField } from "@/components/workshop/diagnostic-report"
+import { FieldError, fieldDescribedBy, focusControl } from "@/components/workshop/field-error"
 import { KmInput } from "@/components/workshop/km-input"
 import { formatAmountInput, formatKmInput, todayISO } from "@/lib/format"
 import { recordTotals } from "@/lib/finance"
@@ -66,6 +67,8 @@ export type RecordDraftPreview = {
 }
 
 export const NEW_RECORD_ID = "new"
+
+type RecordField = "serviceDate" | "mileage" | "labor" | "material" | "billed" | "nextMileage" | "form"
 
 export function RecordEditor({
   vehicleId,
@@ -95,8 +98,22 @@ export function RecordEditor({
   const [items, setItems] = useState<DraftItem[]>(
     record?.items.length ? record.items.map(draftFromItem) : [emptyItem()]
   )
-  const [error, setError] = useState("")
+  const [errors, setErrors] = useState<Partial<Record<RecordField, string>>>({})
+  const [saving, setSaving] = useState(false)
   const money = draftMoney(items, laborCost, materialEarnings, billedAmount)
+
+  function clearField(field: RecordField) {
+    setErrors((current) => {
+      if (!current[field] && !current.form) {
+        return current
+      }
+
+      const next = { ...current }
+      delete next[field]
+      delete next.form
+      return next
+    })
+  }
 
   function fillBilled(nextLabor: string, nextMaterial: string) {
     if (billedTouched) {
@@ -123,6 +140,11 @@ export function RecordEditor({
 
   function submit(event: React.FormEvent) {
     event.preventDefault()
+    if (saving) {
+      return
+    }
+
+    setSaving(true)
     const result = commitRecordDraft({
       vehicleId,
       record,
@@ -138,7 +160,10 @@ export function RecordEditor({
     })
 
     if ("error" in result) {
-      setError(result.error)
+      const field = recordFieldFromError(result.error)
+      setErrors({ [field]: result.error })
+      focusControl(recordFieldId[field])
+      setSaving(false)
       return
     }
 
@@ -152,7 +177,7 @@ export function RecordEditor({
   }
 
   return (
-    <form className="flex flex-col gap-4 pb-4 pt-2 print:hidden" onSubmit={submit}>
+    <form className="flex flex-col gap-4 pb-4 pt-2 print:hidden" noValidate onSubmit={submit}>
       <div className="flex items-start gap-3">
         <div className={cn(historySplitClass, "flex-col sm:flex-row sm:items-stretch")}>
           <div className={cn(historyIdentityCols, "sm:items-stretch")}>
@@ -160,11 +185,15 @@ export function RecordEditor({
               id="inline-service-date"
               label="Dátum"
               value={serviceDate}
-              onChange={setServiceDate}
+              onChange={(next) => {
+                clearField("serviceDate")
+                setServiceDate(next)
+              }}
               autoFocus
+              error={errors.serviceDate}
             />
             <div className="flex min-w-0 flex-col gap-1 text-left">
-              <Label className={typeCaption} htmlFor="inline-mileage">
+              <Label className={typeLabel} htmlFor="inline-mileage">
                 Stav tachometra
               </Label>
               <div className={historyKmFieldClass}>
@@ -172,9 +201,15 @@ export function RecordEditor({
                   id="inline-mileage"
                   className={`${fieldClass} text-right`}
                   value={mileage}
-                  onValueChange={setMileage}
+                  onValueChange={(next) => {
+                    clearField("mileage")
+                    setMileage(next)
+                  }}
+                  aria-invalid={Boolean(errors.mileage)}
+                  aria-describedby={fieldDescribedBy("inline-mileage-error", errors.mileage)}
                 />
               </div>
+              <FieldError id="inline-mileage-error">{errors.mileage}</FieldError>
             </div>
             <DateField
               id="inline-next-date"
@@ -184,7 +219,7 @@ export function RecordEditor({
               allowClear
             />
             <div className="flex min-w-0 flex-col gap-1 text-left">
-              <Label className={cn(typeCaption, "invisible")} htmlFor="inline-next-mileage">
+              <Label className={cn(typeLabel, "invisible")} htmlFor="inline-next-mileage">
                 km
               </Label>
               <div className={historyKmFieldClass}>
@@ -192,16 +227,22 @@ export function RecordEditor({
                   id="inline-next-mileage"
                   className={`${fieldClass} text-right`}
                   value={nextServiceMileage}
-                  onValueChange={setNextServiceMileage}
+                  onValueChange={(next) => {
+                    clearField("nextMileage")
+                    setNextServiceMileage(next)
+                  }}
+                  aria-invalid={Boolean(errors.nextMileage)}
+                  aria-describedby={fieldDescribedBy("inline-next-mileage-error", errors.nextMileage)}
                 />
               </div>
+              <FieldError id="inline-next-mileage-error">{errors.nextMileage}</FieldError>
             </div>
           </div>
           <div className={historyMoneyPaneClass}>
             <div className="hidden sm:block" />
             <div className="relative min-h-0 min-w-0 sm:col-span-2">
               <div className={cn("flex h-full min-h-0 flex-col gap-1 text-left", noteBleedClass)}>
-                <Label className={typeCaption} htmlFor="inline-notes">
+                <Label className={typeLabel} htmlFor="inline-notes">
                   Poznámka mechanika
                 </Label>
                 <Textarea
@@ -239,16 +280,24 @@ export function RecordEditor({
           labor={money.labor}
           margin={money.margin}
           onLaborChange={(value) => {
+            clearField("labor")
             setLaborCost(value)
             fillBilled(value, materialEarnings)
           }}
           onMaterialChange={(value) => {
+            clearField("material")
             setMaterialEarnings(value)
             fillBilled(laborCost, value)
           }}
           onBilledChange={(value) => {
+            clearField("billed")
             setBilledTouched(value.trim() !== "")
             setBilledAmount(value)
+          }}
+          errors={{
+            labor: errors.labor,
+            material: errors.material,
+            billed: errors.billed,
           }}
         />
       </RecordMoneyPortal>
@@ -259,19 +308,61 @@ export function RecordEditor({
           <Plus size={iconSize} />
         </Button>
         <div className="flex flex-wrap items-center justify-end gap-3">
-          {error ? <p className={typeError}>{error}</p> : null}
+          {errors.form ? (
+            <p id="inline-record-error" className={typeError} role="alert" tabIndex={-1}>
+              {errors.form}
+            </p>
+          ) : null}
           <Button type="button" className={quietButtonClass} onClick={onClose}>
             Zrušiť
             <X size={iconSize} />
           </Button>
-          <Button type="submit" className={primaryButtonClass}>
-            Uložiť záznam
+          <Button type="submit" className={primaryButtonClass} disabled={saving}>
+            {saving ? "Ukladám záznam…" : "Uložiť záznam"}
             <Check size={iconSize} />
           </Button>
         </div>
       </div>
     </form>
   )
+}
+
+const recordFieldId: Record<RecordField, string> = {
+  serviceDate: "inline-service-date",
+  mileage: "inline-mileage",
+  labor: "inline-labor",
+  material: "inline-material",
+  billed: "inline-billed",
+  nextMileage: "inline-next-mileage",
+  form: "inline-record-error",
+}
+
+function recordFieldFromError(message: string): RecordField {
+  if (message.includes("dátum")) {
+    return "serviceDate"
+  }
+
+  if (message.includes("tachometra")) {
+    return "mileage"
+  }
+
+  if (message.includes("práce")) {
+    return "labor"
+  }
+
+  if (message.includes("materiáli")) {
+    return "material"
+  }
+
+  if (message.includes("Obrat")) {
+    return "billed"
+  }
+
+  if (message.includes("nájazd")) {
+    return "nextMileage"
+  }
+
+  return "form"
 }
 
 function ItemEditorRow({
@@ -324,9 +415,11 @@ function ItemEditorRow({
     <div className="px-4 py-3">
       <div className={cn(diagnostic ? diagnosticItemGridEditor : itemGridEditor)}>
         <div className="flex min-w-0 flex-col gap-1 text-left">
-          <div className={typeCaption}>Úkon</div>
+          <Label className={typeLabel} htmlFor={`${item.key}-action`}>
+            Úkon
+          </Label>
           <Select value={item.actionType || null} onValueChange={chooseAction}>
-            <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
+            <SelectTrigger id={`${item.key}-action`} className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
               <SelectValue placeholder="Zvoľte úkon" />
             </SelectTrigger>
             <SelectContent className={popoverSurfaceClass}>
@@ -344,9 +437,9 @@ function ItemEditorRow({
           <PartFields item={item} onChange={onChange} />
         )}
         <div className="flex min-w-0 flex-col items-end gap-1">
-          <div className={cn(typeCaption, "invisible")} aria-hidden>
+          <Label className={cn(typeLabel, "invisible")} aria-hidden>
             Odstrániť
-          </div>
+          </Label>
           <Button
             type="button"
             className={cn(quietButtonClass, typeDanger, "px-2")}
@@ -374,7 +467,9 @@ function DiagnosticFields({
   return (
     <>
       <div className="flex min-w-0 flex-col gap-1 text-left">
-        <div className={typeCaption}>Rozsah</div>
+        <Label className={typeLabel} htmlFor={`${item.key}-scope`}>
+          Rozsah
+        </Label>
         <Select
           value={
             item.diagnosticScope === "komplexna"
@@ -395,7 +490,7 @@ function DiagnosticFields({
             })
           }}
         >
-          <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
+          <SelectTrigger id={`${item.key}-scope`} className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
             <SelectValue placeholder="Zvoľte rozsah" />
           </SelectTrigger>
           <SelectContent className={popoverSurfaceClass}>
@@ -405,10 +500,12 @@ function DiagnosticFields({
         </Select>
       </div>
       <div className="flex min-w-0 flex-col gap-1 text-left">
-        <div className={typeCaption}>Jednotka</div>
+        <Label className={typeLabel} htmlFor={`${item.key}-unit`}>
+          Jednotka
+        </Label>
         {item.diagnosticScope === "komplexna" ? (
           <Select value="Všetky jednotky">
-            <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
+            <SelectTrigger id={`${item.key}-unit`} className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent className={popoverSurfaceClass}>
@@ -425,7 +522,7 @@ function DiagnosticFields({
               }
             }}
           >
-            <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
+            <SelectTrigger id={`${item.key}-unit`} className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
               <SelectValue placeholder={unitReady ? "Zvoľte jednotku" : "Najprv zvoľte rozsah"} />
             </SelectTrigger>
             <SelectContent className={popoverSurfaceClass}>
@@ -439,8 +536,11 @@ function DiagnosticFields({
         )}
       </div>
       <div className="flex min-w-0 flex-col gap-1 text-left">
-        <div className={typeCaption}>Poznámka</div>
+        <Label className={typeLabel} htmlFor={`${item.key}-note`}>
+          Poznámka
+        </Label>
         <Input
+          id={`${item.key}-note`}
           className={fieldClass}
           value={item.diagnosticNote}
           onChange={(event) => onChange({ diagnosticNote: event.target.value })}
@@ -448,12 +548,14 @@ function DiagnosticFields({
         />
       </div>
       <div className="flex min-w-0 flex-col gap-1 text-left">
-        <div className={typeCaption}>Stav</div>
+        <Label className={typeLabel} htmlFor={`${item.key}-status`}>
+          Stav
+        </Label>
         <Select
           value={item.diagnosticResolved ? "Vyriešené" : "Nevyriešené"}
           onValueChange={(value) => onChange({ diagnosticResolved: value === "Vyriešené" })}
         >
-          <SelectTrigger className={cn(fieldClass, "w-full")}>
+          <SelectTrigger id={`${item.key}-status`} className={cn(fieldClass, "w-full")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent className={popoverSurfaceClass}>
@@ -476,7 +578,9 @@ function PartFields({
   return (
     <>
       <div className="flex min-w-0 flex-col gap-2 text-left">
-        <div className={typeCaption}>Kategória</div>
+        <Label className={typeLabel} htmlFor={`${item.key}-category`}>
+          Kategória
+        </Label>
         <Select
           value={item.category || null}
           disabled={!item.actionType}
@@ -495,7 +599,7 @@ function PartFields({
             })
           }}
         >
-          <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
+          <SelectTrigger id={`${item.key}-category`} className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
             <SelectValue placeholder={item.actionType ? "Zvoľte kategóriu" : "Najprv zvoľte úkon"} />
           </SelectTrigger>
           <SelectContent className={popoverSurfaceClass}>
@@ -506,7 +610,9 @@ function PartFields({
             ))}
           </SelectContent>
         </Select>
-        <div className={typeCaption}>Náhradný diel</div>
+        <Label className={typeLabel} htmlFor={`${item.key}-part`}>
+          Náhradný diel
+        </Label>
         <Select
           value={item.operation || null}
           disabled={!item.category}
@@ -516,7 +622,7 @@ function PartFields({
             }
           }}
         >
-          <SelectTrigger className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
+          <SelectTrigger id={`${item.key}-part`} className={cn(fieldClass, selectPlaceholderClass, "w-full")}>
             <SelectValue placeholder={item.category ? "Zvoľte náhradný diel" : "Najprv zvoľte kategóriu"} />
           </SelectTrigger>
           <SelectContent className={popoverSurfaceClass}>
@@ -529,6 +635,7 @@ function PartFields({
         </Select>
         {isCustomOperation(item.category, item.operation) ? (
           <Input
+            id={`${item.key}-detail`}
             className={fieldClass}
             value={item.detail}
             onChange={(event) => onChange({ detail: event.target.value })}
@@ -537,8 +644,11 @@ function PartFields({
         ) : null}
       </div>
       <div className="flex min-w-0 flex-col gap-1 text-left">
-        <div className={typeCaption}>Typ materiálu</div>
+        <Label className={typeLabel} htmlFor={`${item.key}-material`}>
+          Typ materiálu
+        </Label>
         <Input
+          id={`${item.key}-material`}
           className={fieldClass}
           value={item.materialType}
           disabled={!item.operation}
@@ -547,8 +657,11 @@ function PartFields({
         />
       </div>
       <div className="flex min-w-0 flex-col gap-1 text-left">
-        <div className={typeCaption}>Množstvo</div>
+        <Label className={typeLabel} htmlFor={`${item.key}-qty`}>
+          Množstvo
+        </Label>
         <Input
+          id={`${item.key}-qty`}
           className={fieldClass}
           value={item.quantity}
           disabled={!item.operation}
@@ -557,8 +670,11 @@ function PartFields({
         />
       </div>
       <div className="flex min-w-0 flex-col gap-1 text-left">
-        <div className={typeCaption}>Značka</div>
+        <Label className={typeLabel} htmlFor={`${item.key}-brand`}>
+          Značka
+        </Label>
         <Input
+          id={`${item.key}-brand`}
           className={fieldClass}
           value={item.partBrand}
           disabled={!item.operation}

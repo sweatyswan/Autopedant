@@ -20,7 +20,7 @@ export const popoverSurfaceClass = "border border-neutral-200 bg-white text-blac
 export const accentBarClass = "border-l-2 border-l-[#159DD4]"
 
 export const fieldClass =
-  "border-[#8a8a8a] bg-white text-sm font-normal text-black shadow-none placeholder:text-neutral-600 data-placeholder:text-neutral-600"
+  "border-[#8a8a8a] bg-white text-sm font-normal text-black shadow-none placeholder:text-neutral-600 data-placeholder:text-neutral-600 aria-invalid:border-red-700! in-aria-invalid:border-red-700!"
 
 export const fieldOnCardClass = `${fieldClass} ${insetClass}`
 
@@ -35,7 +35,9 @@ export const controlHoverClass =
 export const quietButtonClass =
   `border border-neutral-200 bg-white text-sm font-medium text-black ${controlHoverClass}`
 
-export const chipClass = "h-7 rounded-md px-2 text-sm font-medium"
+export const hitAreaClass = "min-h-[32px] min-w-[32px]"
+
+export const chipClass = `${hitAreaClass} rounded-md px-2 text-sm font-medium`
 
 export const chipSelectedClass = "bg-[#0F7AAB] text-white"
 

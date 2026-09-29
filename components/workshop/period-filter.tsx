@@ -10,6 +10,7 @@ import {
   chipSelectedClass,
   controlHoverClass,
   fieldClass,
+  hitAreaClass,
   iconSize,
   popoverSurfaceClass,
   typeCaption,
@@ -46,6 +47,7 @@ export function PeriodFilter({
         className={cn(
           fieldClass,
           controlHoverClass,
+          hitAreaClass,
           "inline-flex h-8 max-w-44 items-center gap-1 rounded-lg border px-2.5 text-left"
         )}
       >

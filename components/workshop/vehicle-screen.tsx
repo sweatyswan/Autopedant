@@ -237,7 +237,7 @@ export function VehicleScreen() {
                         }
                       }}
                     >
-                      Uložiť históriu
+                      {savingHistory ? "Ukladám históriu…" : "Stiahnuť históriu PDF"}
                       <FileArrowDown size={iconSize} />
                     </Button>
                   </>
@@ -250,7 +250,13 @@ export function VehicleScreen() {
             )}
           </div>
           {history.length === 0 && editingId !== NEW_RECORD_ID ? (
-            <p className={cn(typeBody, "p-4")}>Pre toto vozidlo zatiaľ nie je žiadny servisný záznam.</p>
+            <div className="flex flex-col items-start gap-3 p-4">
+              <p className={typeBody}>Pre toto vozidlo zatiaľ nie je žiadny servisný záznam.</p>
+              <Button className={primaryButtonClass} onClick={startNewRecord}>
+                Nový záznam
+                <Plus size={iconSize} />
+              </Button>
+            </div>
           ) : (
             <Accordion
               className="print:overflow-visible"
@@ -669,7 +675,7 @@ function RecordDetails({
       <div className="flex flex-wrap items-center justify-end gap-3 print:hidden">
         <CustomerViewSwitch checked={customerView} onCheckedChange={setCustomerView} />
         <Button type="button" className={quietButtonClass} disabled={savingPdf} onClick={saveVisitPdf}>
-          Uložiť PDF
+          {savingPdf ? "Ukladám PDF…" : "Stiahnuť záznam PDF"}
           <FileArrowDown size={iconSize} />
         </Button>
       </div>

@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { FieldError, fieldDescribedBy, focusControl } from "@/components/workshop/field-error"
 import {
   fieldClass,
   iconSize,
@@ -38,7 +39,6 @@ import {
   primaryButtonClass,
   quietButtonClass,
   typeDanger,
-  typeError,
   typeLabel,
   typeMeta,
   typeTitle,
@@ -53,6 +53,8 @@ type CustomerChoice = {
   id: string
   name: string
 }
+
+type VehicleField = "name" | "phone" | "email" | "plate" | "make" | "year" | "displacement" | "fuel" | "form"
 
 export function VehicleDialog({
   open,
@@ -78,7 +80,7 @@ export function VehicleDialog({
   const [year, setYear] = useState("")
   const [displacement, setDisplacement] = useState("")
   const [fuel, setFuel] = useState<FuelType | "">("")
-  const [error, setError] = useState("")
+  const [errors, setErrors] = useState<Partial<Record<VehicleField, string>>>({})
   const customerChoices: CustomerChoice[] = customers.map((item) => ({ id: item.id, name: item.name }))
   const linkedCustomer = customerChoices.find((choice) => choice.id === customerId)
   const selectedCustomer =
@@ -95,7 +97,20 @@ export function VehicleDialog({
     setYear("")
     setDisplacement("")
     setFuel("")
-    setError("")
+    setErrors({})
+  }
+
+  function clearField(field: VehicleField) {
+    setErrors((current) => {
+      if (!current[field] && !current.form) {
+        return current
+      }
+
+      const next = { ...current }
+      delete next[field]
+      delete next.form
+      return next
+    })
   }
 
   useEffect(() => {
@@ -118,7 +133,7 @@ export function VehicleDialog({
     setYear(vehicle.year ? String(vehicle.year) : "")
     setDisplacement(vehicle.engineDisplacement ? vehicle.engineDisplacement.toFixed(1) : "")
     setFuel(fuelTypes.includes(vehicle.fuel) ? vehicle.fuel : "")
-    setError("")
+    setErrors({})
   }, [customer, open, vehicle])
 
   function applyCustomer(choice: CustomerChoice | null) {
@@ -141,6 +156,7 @@ export function VehicleDialog({
 
   function onCustomerInput(next: string) {
     const owner = customers.find((item) => item.id === customerId)
+    clearField("name")
     setName(next)
 
     if (!owner || normalizeName(next) === normalizeName(owner.name)) {
@@ -170,44 +186,47 @@ export function VehicleDialog({
           ? namedMatch[0].id
           : null
 
+    const nextErrors: Partial<Record<VehicleField, string>> = {}
+
     if (customerName.length === 0) {
-      setError("Zadajte meno zákazníka.")
-      return
+      nextErrors.name = "Zadajte meno zákazníka."
     }
 
     if (!editing && phone.trim().length === 0) {
-      setError("Zadajte telefón.")
-      return
+      nextErrors.phone = "Zadajte telefón."
     }
 
     if (email.trim() && !email.includes("@")) {
-      setError("E-mail nemá platný tvar.")
-      return
+      nextErrors.email = "E-mail nemá platný tvar."
     }
 
     if (!editing && plate.trim().length === 0) {
-      setError("Zadajte EČV.")
-      return
+      nextErrors.plate = "Zadajte EČV."
     }
 
     if (makeModel.trim().length === 0) {
-      setError("Zadajte značku a model.")
-      return
+      nextErrors.make = "Zadajte značku a model."
     }
 
     if (!year.trim() || !Number.isInteger(parsedYear) || parsedYear < 1980 || parsedYear > currentYear + 1) {
-      setError("Zadajte rok výroby.")
-      return
+      nextErrors.year = "Zadajte rok výroby."
     }
 
     const parsedDisplacement = displacement.trim() ? parseDisplacement(displacement) : editing ? 0 : null
     if (parsedDisplacement === null) {
-      setError("Vyberte objem motora.")
-      return
+      nextErrors.displacement = "Vyberte objem motora."
     }
 
     if (!fuel && !editing) {
-      setError("Zadajte palivo.")
+      nextErrors.fuel = "Zadajte palivo."
+    }
+
+    const firstInvalid = vehicleFieldOrder.find((field) => nextErrors[field])
+    if (firstInvalid || parsedDisplacement === null) {
+      setErrors(nextErrors)
+      if (firstInvalid) {
+        focusControl(vehicleFieldId[firstInvalid])
+      }
       return
     }
 
@@ -228,7 +247,9 @@ export function VehicleDialog({
     if (editing && vehicle) {
       const result = updateVehicle(vehicle.id, payload)
       if (!result.ok) {
-        setError(result.message)
+        const field = workshopField(result.message)
+        setErrors({ [field]: result.message })
+        focusControl(vehicleFieldId[field])
         return
       }
 
@@ -239,7 +260,9 @@ export function VehicleDialog({
     const result = addVehicle(payload)
 
     if (!result.ok) {
-      setError(result.message)
+      const field = workshopField(result.message)
+      setErrors({ [field]: result.message })
+      focusControl(vehicleFieldId[field])
       return
     }
 
@@ -261,7 +284,7 @@ export function VehicleDialog({
         <DialogHeader>
           <DialogTitle className={typeTitle}>{editing ? "Upraviť vozidlo" : "Nové vozidlo"}</DialogTitle>
         </DialogHeader>
-        <form className="flex flex-col gap-4" onSubmit={submit}>
+        <form className="flex flex-col gap-4" noValidate onSubmit={submit}>
           <div className="flex flex-col gap-2">
             <Label className={typeLabel} htmlFor="customer">
               Zákazník
@@ -289,7 +312,9 @@ export function VehicleDialog({
               <ComboboxInput
                 id="customer"
                 className={`${fieldClass} w-full`}
-                placeholder="Meno, alebo z evidencie"
+                placeholder="Meno alebo z evidencie"
+                aria-invalid={Boolean(errors.name)}
+                aria-describedby={fieldDescribedBy("customer-error", errors.name)}
                 showClear
               />
               <ComboboxContent className={popoverSurfaceClass}>
@@ -306,6 +331,7 @@ export function VehicleDialog({
             {name.trim() ? (
               <p className={typeMeta}>{selectedCustomer ? "Z evidencie" : "Nový zákazník"}</p>
             ) : null}
+            <FieldError id="customer-error">{errors.name}</FieldError>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -317,25 +343,36 @@ export function VehicleDialog({
               id="customer-phone"
               className={fieldClass}
               value={phone}
-              onChange={(event) => setPhone(event.target.value)}
+              onChange={(event) => {
+                clearField("phone")
+                setPhone(event.target.value)
+              }}
               placeholder="Napr. +421 908 331 447"
               autoComplete="tel"
-              required={!editing}
+              aria-invalid={Boolean(errors.phone)}
+              aria-describedby={fieldDescribedBy("customer-phone-error", errors.phone)}
             />
+            <FieldError id="customer-phone-error">{errors.phone}</FieldError>
           </div>
 
           <div className="flex flex-col gap-2">
             <Label className={typeLabel} htmlFor="customer-email">
-              E-mail
+              E-mail (nepovinné)
             </Label>
             <Input
               id="customer-email"
               className={fieldClass}
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                clearField("email")
+                setEmail(event.target.value)
+              }}
               placeholder="Napr. martina.kovacova@example.com"
               autoComplete="email"
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={fieldDescribedBy("customer-email-error", errors.email)}
             />
+            <FieldError id="customer-email-error">{errors.email}</FieldError>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -348,11 +385,16 @@ export function VehicleDialog({
                 id="plate"
                 className={`${fieldClass} uppercase tabular-nums placeholder:normal-case`}
                 value={plate}
-                onChange={(event) => setPlate(formatPlate(event.target.value))}
+                onChange={(event) => {
+                  clearField("plate")
+                  setPlate(formatPlate(event.target.value))
+                }}
                 placeholder="Napr. BA123XY"
                 autoComplete="off"
-                required={!editing}
+                aria-invalid={Boolean(errors.plate)}
+                aria-describedby={fieldDescribedBy("plate-error", errors.plate)}
               />
+              <FieldError id="plate-error">{errors.plate}</FieldError>
             </div>
             <div className="flex flex-col gap-2">
               <Label className={typeLabel} htmlFor="year">
@@ -363,11 +405,16 @@ export function VehicleDialog({
                 id="year"
                 className={`${fieldClass} text-right tabular-nums placeholder:text-left`}
                 value={year}
-                onChange={(event) => setYear(event.target.value)}
+                onChange={(event) => {
+                  clearField("year")
+                  setYear(event.target.value)
+                }}
                 placeholder="Napr. 2018"
                 inputMode="numeric"
-                required
+                aria-invalid={Boolean(errors.year)}
+                aria-describedby={fieldDescribedBy("year-error", errors.year)}
               />
+              <FieldError id="year-error">{errors.year}</FieldError>
             </div>
           </div>
 
@@ -394,10 +441,15 @@ export function VehicleDialog({
               id="make-model"
               className={fieldClass}
               value={makeModel}
-              onChange={(event) => setMakeModel(event.target.value)}
+              onChange={(event) => {
+                clearField("make")
+                setMakeModel(event.target.value)
+              }}
               placeholder="Napr. Škoda Octavia"
-              required
+              aria-invalid={Boolean(errors.make)}
+              aria-describedby={fieldDescribedBy("make-model-error", errors.make)}
             />
+            <FieldError id="make-model-error">{errors.make}</FieldError>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -415,12 +467,17 @@ export function VehicleDialog({
 
                   const parsed = parseDisplacement(value)
                   if (parsed !== null) {
+                    clearField("displacement")
                     setDisplacement(parsed.toFixed(1))
                   }
                 }}
-                required={!editing}
               >
-                <SelectTrigger id="displacement" className={`${fieldClass} w-full`}>
+                <SelectTrigger
+                  id="displacement"
+                  className={`${fieldClass} w-full`}
+                  aria-invalid={Boolean(errors.displacement)}
+                  aria-describedby={fieldDescribedBy("displacement-error", errors.displacement)}
+                >
                   <SelectValue placeholder="Napr. 1,6 l">
                     {displacement ? formatDisplacement(Number(displacement)) : "Napr. 1,6 l"}
                   </SelectValue>
@@ -433,6 +490,7 @@ export function VehicleDialog({
                   ))}
                 </SelectContent>
               </Select>
+              <FieldError id="displacement-error">{errors.displacement}</FieldError>
             </div>
             <div className="flex flex-col gap-2">
               <Label className={typeLabel} htmlFor="fuel">
@@ -443,12 +501,17 @@ export function VehicleDialog({
                 value={fuel || null}
                 onValueChange={(value) => {
                   if (fuelTypes.includes(value as FuelType)) {
+                    clearField("fuel")
                     setFuel(value as FuelType)
                   }
                 }}
-                required={!editing}
               >
-                <SelectTrigger id="fuel" className={`${fieldClass} w-full`}>
+                <SelectTrigger
+                  id="fuel"
+                  className={`${fieldClass} w-full`}
+                  aria-invalid={Boolean(errors.fuel)}
+                  aria-describedby={fieldDescribedBy("fuel-error", errors.fuel)}
+                >
                   <SelectValue placeholder="Napr. Nafta">{fuel || "Napr. Nafta"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent className={popoverSurfaceClass}>
@@ -459,10 +522,11 @@ export function VehicleDialog({
                   ))}
                 </SelectContent>
               </Select>
+              <FieldError id="fuel-error">{errors.fuel}</FieldError>
             </div>
           </div>
 
-          {error ? <p className={typeError}>{error}</p> : null}
+          <FieldError id="vehicle-form-error">{errors.form}</FieldError>
 
           <DialogFooter className="border-neutral-200 bg-white sm:justify-end">
             <Button type="button" className={quietButtonClass} onClick={close}>
@@ -478,6 +542,32 @@ export function VehicleDialog({
       </DialogContent>
     </Dialog>
   )
+}
+
+const vehicleFieldOrder = ["name", "phone", "email", "plate", "make", "year", "displacement", "fuel"] as const
+
+const vehicleFieldId: Record<(typeof vehicleFieldOrder)[number] | "form", string> = {
+  name: "customer",
+  phone: "customer-phone",
+  email: "customer-email",
+  plate: "plate",
+  make: "make-model",
+  year: "year",
+  displacement: "displacement",
+  fuel: "fuel",
+  form: "vehicle-form-error",
+}
+
+function workshopField(message: string): VehicleField {
+  if (message.includes("EČV")) {
+    return "plate"
+  }
+
+  if (message.includes("palivo")) {
+    return "fuel"
+  }
+
+  return "form"
 }
 
 function RequiredMark() {

@@ -11,7 +11,7 @@ export const historyMoneyPaneClass =
 
 export const historyKmFieldClass = "sm:w-[9rem]"
 
-export const historyChevronClass = "w-4 shrink-0"
+export const historyChevronClass = "flex min-h-[32px] min-w-[32px] shrink-0 items-center justify-center"
 
 export const historyActionClass = "w-[6.25rem] shrink-0"
 

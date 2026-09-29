@@ -22,6 +22,7 @@ import {
   canvasClass,
   controlHoverClass,
   fieldClass,
+  hitAreaClass,
   iconSize,
   popoverSurfaceClass,
   primaryButtonClass,
@@ -127,7 +128,7 @@ export function HomeScreen() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <label className={typeCaption} htmlFor="vehicle-search">
-              Hľadať podľa EČV, VIN alebo mena
+              EČV, VIN alebo meno
             </label>
             <Input
               id="vehicle-search"
@@ -204,11 +205,39 @@ export function HomeScreen() {
         ) : null}
 
         {results.length === 0 ? (
-          <p className={typeBody}>
-            {vehicles.length === 0
-              ? "V evidencii zatiaľ nie je žiadne vozidlo."
-              : "Nič sa nenašlo. Upravte hľadanie alebo filtre."}
-          </p>
+          <div className="flex flex-col items-start gap-3">
+            <p className={typeBody}>
+              {vehicles.length === 0
+                ? "V evidencii zatiaľ nie je žiadne vozidlo."
+                : "Nič sa nenašlo. Upravte hľadanie alebo filtre."}
+            </p>
+            {vehicles.length === 0 ? (
+              <Button
+                className={primaryButtonClass}
+                onClick={() => {
+                  setEditingVehicleId(null)
+                  setVehicleOpen(true)
+                }}
+              >
+                Nové vozidlo
+                <Plus size={iconSize} />
+              </Button>
+            ) : filtersActive || query ? (
+              <Button
+                type="button"
+                className={quietButtonClass}
+                onClick={() => {
+                  setFilters(defaultFilters)
+                  setSort("last")
+                  setDirection("desc")
+                  setQuery("")
+                }}
+              >
+                Zrušiť filtre
+                <X size={iconSize} />
+              </Button>
+            ) : null}
+          </div>
         ) : (
           <div className={cn("overflow-hidden rounded-lg", surfaceClass)}>
             <div className="hidden border-b border-neutral-200 px-4 py-2 sm:flex sm:items-center sm:gap-3">
@@ -287,7 +316,7 @@ export function HomeScreen() {
                   <Link
                     href={`/vozidlo?id=${vehicle.id}`}
                     aria-label="Otvoriť kartu vozidla"
-                    className={cn(historyChevronClass, "flex items-center justify-center text-black")}
+                    className={cn(historyChevronClass, "text-black")}
                   >
                     <ArrowRight size={iconSize} />
                   </Link>
@@ -312,6 +341,18 @@ export function HomeScreen() {
   )
 }
 
+function directionName(sort: ListSort, direction: ListSortDirection) {
+  if (sort === "customer") {
+    return direction === "asc" ? "A–Z" : "Z–A"
+  }
+
+  if (sort === "next") {
+    return direction === "asc" ? "Od najbližšieho" : "Od najneskoršieho"
+  }
+
+  return direction === "asc" ? "Od najstaršieho" : "Od najnovšieho"
+}
+
 function SortMenu({
   sort,
   direction,
@@ -329,6 +370,7 @@ function SortMenu({
         className={cn(
           fieldClass,
           controlHoverClass,
+          hitAreaClass,
           "inline-flex size-8 shrink-0 items-center justify-center rounded-lg border"
         )}
         aria-label="Zoradiť"
@@ -370,8 +412,8 @@ function SortMenu({
               }
             }}
           >
-            <DropdownMenuRadioItem value="asc">Vzostupne</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="desc">Zostupne</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="asc">{directionName(sort, "asc")}</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="desc">{directionName(sort, "desc")}</DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
         </DropdownMenuGroup>
       </DropdownMenuContent>
