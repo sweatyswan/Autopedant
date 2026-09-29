@@ -211,7 +211,11 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
           }
         } else {
           let migrated = migrateWorkshop(remote)
-          if (!migrated.records.some((record) => record.id === "rec_veh-pali-talar-p301-2024-04-30-170000-114")) {
+          const importedWorkshop = migrated.customers.some((customer) => customer.id.startsWith("cus_"))
+          if (
+            importedWorkshop &&
+            !migrated.records.some((record) => record.id === "rec_veh-pali-talar-p301-2024-04-30-170000-114")
+          ) {
             const prepared = await loadPreparedImport()
             if (prepared) {
               migrated = addMissingRecords(migrated, prepared)

@@ -81,8 +81,8 @@ export function AuthScreen() {
             <Input
               id="auth-email"
               className={fieldClass}
-              type="email"
-              autoComplete="email"
+              type="text"
+              autoComplete="username"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required

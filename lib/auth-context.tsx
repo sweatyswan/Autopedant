@@ -17,6 +17,18 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+const demoLogin = "jozko.tester"
+const demoEmail = "jozko.tester@demo.autopedant.local"
+
+function accountEmail(value: string) {
+  const trimmed = value.trim()
+  if (trimmed.toLowerCase() === demoLogin) {
+    return demoEmail
+  }
+
+  return trimmed
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const configured = isSupabaseConfigured()
   const [ready, setReady] = useState(!configured)
@@ -59,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { ok: false as const, message: "Cloud nie je nastavený." }
         }
 
-        const { error } = await client.auth.signInWithPassword({ email: email.trim(), password })
+        const { error } = await client.auth.signInWithPassword({ email: accountEmail(email), password })
         if (error) {
           return { ok: false as const, message: "Prihlásenie sa nepodarilo." }
         }
@@ -72,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { ok: false as const, message: "Cloud nie je nastavený." }
         }
 
-        const { data, error } = await client.auth.signUp({ email: email.trim(), password })
+        const { data, error } = await client.auth.signUp({ email: accountEmail(email), password })
         if (error) {
           return { ok: false as const, message: "Účet sa nepodarilo vytvoriť." }
         }
