@@ -53,9 +53,16 @@ Use the roles from `components/workshop/styles.ts`:
 # 6. Localization
 - All customer- and mechanic-facing text, button labels, placeholders, and error messages MUST be in Slovak.
 
-# 7. Pre-Execution Self-Audit
+# 7. Static host (GitHub Pages)
+Live is `output: "export"` on GitHub Pages. Pages answers GET only. A native form POST to the same origin is a full-page **405**.
+- Every workshop `<form>` is client-only: `method="dialog"` and `onSubmit` that calls `preventDefault()`.
+- Do not use Server Actions, `next/form`, `action={fn}`, or `method="post"` to this origin.
+- Auth and workshop data go to Supabase, never to `github.io`.
+
+# 8. Pre-Execution Self-Audit
 Before outputting code, verify that:
 1. Surfaces stay white and text stays black. Filled actions use `#159DD4`. Small accent text uses `#0B6E96`.
 2. Interactive surfaces keep a radius. `rounded-none` is not used to flatten shadcn components.
 3. Every button, input, and modal uses Shadcn UI.
 4. Typography uses Inter roles from `styles.ts`. No `font-mono`. No `neutral-400` or `neutral-500` text.
+5. New `<form>` elements use `method="dialog"` and never POST to this origin.
