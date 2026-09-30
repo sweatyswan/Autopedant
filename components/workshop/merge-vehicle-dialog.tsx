@@ -139,7 +139,7 @@ export function MergeVehicleDialog({
         <DialogHeader>
           <DialogTitle className={typeTitle}>Spojiť kartu</DialogTitle>
         </DialogHeader>
-        <form className="flex flex-col gap-4" onSubmit={submit}>
+        <form className="flex flex-col gap-4" method="dialog" onSubmit={submit}>
           <p className={typeBody}>
             Zákroky z vybranej karty prejdú sem. Vybraná karta sa z evidencie odstráni.
           </p>

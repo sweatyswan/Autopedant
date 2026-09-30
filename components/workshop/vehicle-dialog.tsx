@@ -284,7 +284,7 @@ export function VehicleDialog({
         <DialogHeader>
           <DialogTitle className={typeTitle}>{editing ? "Upraviť vozidlo" : "Nové vozidlo"}</DialogTitle>
         </DialogHeader>
-        <form className="flex flex-col gap-4" noValidate onSubmit={submit}>
+        <form className="flex flex-col gap-4" method="dialog" noValidate onSubmit={submit}>
           <div className="flex flex-col gap-2">
             <Label className={typeLabel} htmlFor="customer">
               Zákazník

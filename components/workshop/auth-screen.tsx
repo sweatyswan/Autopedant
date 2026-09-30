@@ -104,6 +104,7 @@ export function AuthScreen() {
 
         <form
           className="mt-4 flex flex-col gap-4"
+          method="dialog"
           noValidate
           onSubmit={(event) => {
             event.preventDefault()

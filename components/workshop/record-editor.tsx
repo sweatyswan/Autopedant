@@ -177,7 +177,7 @@ export function RecordEditor({
   }
 
   return (
-    <form className="flex flex-col gap-4 pb-4 pt-2 print:hidden" noValidate onSubmit={submit}>
+    <form className="flex flex-col gap-4 pb-4 pt-2 print:hidden" method="dialog" noValidate onSubmit={submit}>
       <div className="flex items-start gap-3">
         <div className={cn(historySplitClass, "flex-col sm:flex-row sm:items-stretch")}>
           <div className={cn(historyIdentityCols, "sm:items-stretch")}>
