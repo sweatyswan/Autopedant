@@ -1,4 +1,4 @@
-import { engineDisplacements } from "@/lib/types"
+import { batteryCapacitiesKwh, engineDisplacements } from "@/lib/types"
 
 export function formatMoney(value: number) {
   return new Intl.NumberFormat("sk-SK", {
@@ -90,11 +90,33 @@ export function normalizeName(value: string) {
     .trim()
 }
 
+const literFormat = new Intl.NumberFormat("sk-SK", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
+
+const wholeFormat = new Intl.NumberFormat("sk-SK", {
+  maximumFractionDigits: 0,
+})
+
 export function formatDisplacement(liters: number) {
-  return `${new Intl.NumberFormat("sk-SK", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(liters)} l`
+  if (liters > 0 && liters < 1.6) {
+    return `${wholeFormat.format(Math.round(liters * 1000))} cm³`
+  }
+
+  return `${literFormat.format(liters)} l`
+}
+
+export function formatBatteryCapacity(kwh: number) {
+  return `${wholeFormat.format(kwh)} kWh`
+}
+
+export function formatEngine(value: number, fuel: string) {
+  if (fuel === "Elektro") {
+    return formatBatteryCapacity(value)
+  }
+
+  return formatDisplacement(value)
 }
 
 export function formatVehicleSpec(vehicle: {
@@ -103,19 +125,24 @@ export function formatVehicleSpec(vehicle: {
   engineDisplacement: number
   fuel: string
 }) {
-  return `${vehicle.makeModel}, ${vehicle.year} · ${formatDisplacement(vehicle.engineDisplacement)} · ${vehicle.fuel}`
+  return `${vehicle.makeModel}, ${vehicle.year} · ${formatEngine(vehicle.engineDisplacement, vehicle.fuel)} · ${vehicle.fuel}`
 }
 
-export function parseDisplacement(value: string) {
-  const liters = parseAmount(value)
-  if (liters === null) {
+function matchListedNumber(value: string, options: number[]) {
+  const amount = Number(value.trim().replace(/\s/g, "").replace(",", "."))
+  if (!Number.isFinite(amount) || amount < 0) {
     return null
   }
 
-  return (
-    engineDisplacements.find((option) => Math.round(option * 10) === Math.round(liters * 10)) ??
-    null
-  )
+  return options.find((option) => Math.abs(option - amount) < 0.0005) ?? null
+}
+
+export function parseDisplacement(value: string) {
+  return matchListedNumber(value, engineDisplacements)
+}
+
+export function parseBatteryCapacity(value: string) {
+  return matchListedNumber(value, batteryCapacitiesKwh)
 }
 
 export function formatPlate(value: string) {

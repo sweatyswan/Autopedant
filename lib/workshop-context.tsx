@@ -79,6 +79,7 @@ type WorkshopContextValue = {
   addRecord: (record: ServiceRecord) => void
   updateRecord: (record: ServiceRecord) => void
   deleteRecord: (recordId: string) => void
+  deleteVehicle: (vehicleId: string) => { ok: true } | { ok: false; message: string }
   revertChange: (changeId: string) => { ok: true } | { ok: false; message: string }
 }
 
@@ -667,6 +668,43 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
     )
   }, [persistRecordDelete, rememberChange])
 
+  const deleteVehicle = useCallback((vehicleId: string) => {
+    const current = dataRef.current
+    const vehicle = current.vehicles.find((item) => item.id === vehicleId)
+    const customer = current.customers.find((item) => item.id === vehicle?.customerId)
+    if (!vehicle || !customer) {
+      return { ok: false as const, message: "Vozidlo sa v evidencii nenašlo." }
+    }
+
+    const removedRecords = current.records.filter((item) => item.vehicleId === vehicle.id)
+    const leftoverVehicles = current.vehicles.filter((item) => item.id !== vehicle.id)
+    const dropCustomer = !leftoverVehicles.some((item) => item.customerId === vehicle.customerId)
+    setData({
+      customers: dropCustomer
+        ? current.customers.filter((item) => item.id !== vehicle.customerId)
+        : current.customers,
+      vehicles: leftoverVehicles,
+      records: current.records.filter((item) => item.vehicleId !== vehicle.id),
+    })
+    persistVehicleDelete(vehicle.id, dropCustomer ? vehicle.customerId : undefined)
+    rememberChange(
+      createChange({
+        title: "Odstránené vozidlo",
+        detail: vehicleChangeDetail(customer, vehicle),
+        vehicleId: vehicle.id,
+        kind: "vehicle.delete",
+        snapshot: {
+          vehicle: snapshotOf(vehicle),
+          customer: snapshotOf(customer),
+          createdCustomer: dropCustomer,
+          records: removedRecords.map((record) => snapshotOf(record)),
+        },
+      })
+    )
+
+    return { ok: true as const }
+  }, [persistVehicleDelete, rememberChange])
+
   const revertChange = useCallback((changeId: string) => {
     const listed = changesRef.current.find((item) => item.id === changeId)
     const change = listed ? hydrateChangeForRevert(listed, dataRef.current) : null
@@ -897,9 +935,10 @@ export function WorkshopProvider({ children }: { children: React.ReactNode }) {
       addRecord,
       updateRecord,
       deleteRecord,
+      deleteVehicle,
       revertChange,
     }),
-    [addRecord, addVehicle, mergeVehicles, updateVehicle, changes, cloudError, deleteRecord, revertChange, updateRecord, data, ready]
+    [addRecord, addVehicle, mergeVehicles, updateVehicle, changes, cloudError, deleteRecord, deleteVehicle, revertChange, updateRecord, data, ready]
   )
 
   return (

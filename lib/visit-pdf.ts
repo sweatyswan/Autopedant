@@ -2,7 +2,7 @@ import fontkit from "@pdf-lib/fontkit"
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib"
 
 import { recordTotals } from "@/lib/finance"
-import { formatDate, formatDisplacement, formatKm, formatMoney, formatNextService, formatPlate } from "@/lib/format"
+import { formatDate, formatEngine, formatKm, formatMoney, formatNextService, formatPlate } from "@/lib/format"
 import { diagnosticScopeText, diagnosticStatusText, isDiagnosticAction } from "@/lib/service-catalog"
 import type { Customer, ServiceItem, ServiceRecord, Vehicle } from "@/lib/types"
 
@@ -239,7 +239,7 @@ function drawVehicleCustomer(writer: PdfWriter, fonts: Fonts, vehicle: Vehicle, 
   const columnWidth = (contentWidth - 16) / 2
   const spec = [
     vehicle.year > 0 ? `${vehicle.makeModel}, ${vehicle.year}` : vehicle.makeModel,
-    vehicle.engineDisplacement > 0 ? formatDisplacement(vehicle.engineDisplacement) : "",
+    vehicle.engineDisplacement > 0 ? formatEngine(vehicle.engineDisplacement, vehicle.fuel) : "",
     vehicle.fuel.trim(),
   ]
     .filter(Boolean)

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Bin, FileArrowDown, GitMerge, Pen, Plus } from "@keyline-icons/react"
 
 import {
@@ -82,9 +82,10 @@ const identityGrid = "grid grid-cols-1 gap-4 sm:grid-cols-2"
 const factsGrid = "grid grid-cols-2 gap-4 sm:grid-cols-5"
 
 export function VehicleScreen() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const vehicleId = searchParams.get("id")
-  const { customers, vehicles, records, deleteRecord } = useWorkshop()
+  const { customers, vehicles, records, deleteRecord, deleteVehicle } = useWorkshop()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [openRecords, setOpenRecords] = useState<string[]>([])
   const [draftPreview, setDraftPreview] = useState<RecordDraftPreview | null>(null)
@@ -92,6 +93,7 @@ export function VehicleScreen() {
   const [savingHistory, setSavingHistory] = useState(false)
   const [vehicleOpen, setVehicleOpen] = useState(false)
   const [mergeOpen, setMergeOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const vehicle = vehicles.find((item) => item.id === vehicleId)
   const customer = customers.find((item) => item.id === vehicle?.customerId)
   const history = records
@@ -113,6 +115,9 @@ export function VehicleScreen() {
     )
   }
 
+  const soleCustomer = !vehicles.some(
+    (item) => item.customerId === vehicle.customerId && item.id !== vehicle.id
+  )
   const lastVisit = history[0]
   const firstVisit = history[history.length - 1]
   const lastOil = latestOilRecord(history)
@@ -176,6 +181,14 @@ export function VehicleScreen() {
                 >
                   Spojiť kartu
                   <GitMerge size={iconSize} />
+                </Button>
+                <Button
+                  type="button"
+                  className={cn(quietButtonClass, typeDanger)}
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  Odstrániť
+                  <Bin size={iconSize} />
                 </Button>
               </div>
             </div>
@@ -361,6 +374,32 @@ export function VehicleScreen() {
       </main>
       <VehicleDialog open={vehicleOpen} vehicle={vehicle} customer={customer} onOpenChange={setVehicleOpen} />
       <MergeVehicleDialog open={mergeOpen} vehicle={vehicle} onOpenChange={setMergeOpen} />
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Odstrániť vozidlo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {`Vozidlo ${formatPlate(vehicle.licensePlate) || vehicle.makeModel} a jeho servisné zákroky sa odstránia z evidencie.`}
+              {soleCustomer ? " Zákazník sa odstráni tiež, lebo nemá iné vozidlo." : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className={quietButtonClass}>Zrušiť</AlertDialogCancel>
+            <AlertDialogAction
+              className={cn(quietButtonClass, typeDanger)}
+              onClick={() => {
+                const result = deleteVehicle(vehicle.id)
+                setDeleteOpen(false)
+                if (result.ok) {
+                  router.push("/")
+                }
+              }}
+            >
+              Odstrániť
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

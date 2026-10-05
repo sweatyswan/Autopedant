@@ -43,8 +43,22 @@ import {
   typeMeta,
   typeTitle,
 } from "@/components/workshop/styles"
-import { formatDisplacement, formatPlate, normalizeName, parseDisplacement } from "@/lib/format"
-import { engineDisplacements, fuelTypes, type Customer, type FuelType, type Vehicle } from "@/lib/types"
+import {
+  formatBatteryCapacity,
+  formatDisplacement,
+  formatPlate,
+  normalizeName,
+  parseBatteryCapacity,
+  parseDisplacement,
+} from "@/lib/format"
+import {
+  batteryCapacitiesKwh,
+  engineDisplacements,
+  fuelTypes,
+  type Customer,
+  type FuelType,
+  type Vehicle,
+} from "@/lib/types"
 import { useWorkshop } from "@/lib/workshop-context"
 
 const newCustomerValue = "new"
@@ -131,7 +145,7 @@ export function VehicleDialog({
     setVin(vehicle.vin)
     setMakeModel(vehicle.makeModel)
     setYear(vehicle.year ? String(vehicle.year) : "")
-    setDisplacement(vehicle.engineDisplacement ? vehicle.engineDisplacement.toFixed(1) : "")
+    setDisplacement(engineOptionKey(vehicle.fuel, vehicle.engineDisplacement))
     setFuel(fuelTypes.includes(vehicle.fuel) ? vehicle.fuel : "")
     setErrors({})
   }, [customer, open, vehicle])
@@ -212,9 +226,16 @@ export function VehicleDialog({
       nextErrors.year = "Zadajte rok výroby."
     }
 
-    const parsedDisplacement = displacement.trim() ? parseDisplacement(displacement) : editing ? 0 : null
+    const electric = fuel === "Elektro"
+    const parsedDisplacement = displacement.trim()
+      ? electric
+        ? parseBatteryCapacity(displacement)
+        : parseDisplacement(displacement)
+      : editing
+        ? 0
+        : null
     if (parsedDisplacement === null) {
-      nextErrors.displacement = "Vyberte objem motora."
+      nextErrors.displacement = electric ? "Vyberte kapacitu batérie." : "Vyberte objem motora."
     }
 
     if (!fuel && !editing) {
@@ -293,7 +314,13 @@ export function VehicleDialog({
               items={customerChoices}
               value={selectedCustomer}
               inputValue={name}
-              onInputValueChange={onCustomerInput}
+              onInputValueChange={(next, details) => {
+                if (details.reason === "input-clear" && next.length === 0 && name.trim().length > 0 && !selectedCustomer) {
+                  details.cancel()
+                  return
+                }
+                onCustomerInput(next)
+              }}
               onValueChange={(next) => {
                 applyCustomer(next)
               }}
@@ -455,7 +482,7 @@ export function VehicleDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label className={typeLabel} htmlFor="displacement">
-                Objem motora
+                {fuel === "Elektro" ? "Kapacita batérie" : "Objem motora"}
                 {editing ? null : <RequiredMark />}
               </Label>
               <Select
@@ -465,10 +492,10 @@ export function VehicleDialog({
                     return
                   }
 
-                  const parsed = parseDisplacement(value)
+                  const parsed = fuel === "Elektro" ? parseBatteryCapacity(value) : parseDisplacement(value)
                   if (parsed !== null) {
                     clearField("displacement")
-                    setDisplacement(parsed.toFixed(1))
+                    setDisplacement(fuel === "Elektro" ? String(parsed) : parsed.toFixed(3))
                   }
                 }}
               >
@@ -478,16 +505,22 @@ export function VehicleDialog({
                   aria-invalid={Boolean(errors.displacement)}
                   aria-describedby={fieldDescribedBy("displacement-error", errors.displacement)}
                 >
-                  <SelectValue placeholder="Napr. 1,6 l">
-                    {displacement ? formatDisplacement(Number(displacement)) : "Napr. 1,6 l"}
+                  <SelectValue placeholder={fuel === "Elektro" ? "Napr. 60 kWh" : "Napr. 1,6 l"}>
+                    {engineFieldLabel(fuel, displacement)}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className={popoverSurfaceClass}>
-                  {engineDisplacements.map((option) => (
-                    <SelectItem key={option.toFixed(1)} value={option.toFixed(1)}>
-                      {formatDisplacement(option)}
-                    </SelectItem>
-                  ))}
+                  {fuel === "Elektro"
+                    ? batteryCapacitiesKwh.map((option) => (
+                        <SelectItem key={option} value={String(option)}>
+                          {formatBatteryCapacity(option)}
+                        </SelectItem>
+                      ))
+                    : engineDisplacements.map((option) => (
+                        <SelectItem key={option.toFixed(3)} value={option.toFixed(3)}>
+                          {formatDisplacement(option)}
+                        </SelectItem>
+                      ))}
                 </SelectContent>
               </Select>
               <FieldError id="displacement-error">{errors.displacement}</FieldError>
@@ -500,10 +533,18 @@ export function VehicleDialog({
               <Select
                 value={fuel || null}
                 onValueChange={(value) => {
-                  if (fuelTypes.includes(value as FuelType)) {
-                    clearField("fuel")
-                    setFuel(value as FuelType)
+                  if (!fuelTypes.includes(value as FuelType)) {
+                    return
                   }
+
+                  const nextFuel = value as FuelType
+                  clearField("fuel")
+                  setFuel(nextFuel)
+                  if ((fuel === "Elektro") === (nextFuel === "Elektro")) {
+                    return
+                  }
+
+                  setDisplacement((current) => keepEngineOption(nextFuel, current))
                 }}
               >
                 <SelectTrigger
@@ -568,6 +609,46 @@ function workshopField(message: string): VehicleField {
   }
 
   return "form"
+}
+
+function engineOptionKey(fuel: FuelType | "", value: number) {
+  if (!value) {
+    return ""
+  }
+
+  if (fuel === "Elektro") {
+    const parsed = parseBatteryCapacity(String(value))
+    return parsed === null ? "" : String(parsed)
+  }
+
+  const parsed = parseDisplacement(String(value))
+  return parsed === null ? "" : parsed.toFixed(3)
+}
+
+function keepEngineOption(fuel: FuelType, current: string) {
+  if (!current) {
+    return ""
+  }
+
+  if (fuel === "Elektro") {
+    const parsed = parseBatteryCapacity(current)
+    return parsed === null ? "" : String(parsed)
+  }
+
+  const parsed = parseDisplacement(current)
+  return parsed === null ? "" : parsed.toFixed(3)
+}
+
+function engineFieldLabel(fuel: FuelType | "", value: string) {
+  if (!value) {
+    return fuel === "Elektro" ? "Napr. 60 kWh" : "Napr. 1,6 l"
+  }
+
+  if (fuel === "Elektro") {
+    return formatBatteryCapacity(Number(value))
+  }
+
+  return formatDisplacement(Number(value))
 }
 
 function RequiredMark() {
