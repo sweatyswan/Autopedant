@@ -45,8 +45,8 @@ import { sumTotals } from "@/lib/finance"
 import {
   filterRecords,
   filterVehicles,
-  latestOilRecord,
-  latestOilUpcoming,
+  latestRecord,
+  latestUpcoming,
   serviceYears,
   sortVehicles,
   type ListFilters,
@@ -253,8 +253,8 @@ export function HomeScreen() {
             {results.map((vehicle, index) => {
               const customer = customersById.get(vehicle.customerId)
               const vehicleRecords = records.filter((record) => record.vehicleId === vehicle.id)
-              const lastOil = latestOilRecord(vehicleRecords)
-              const nextOil = latestOilUpcoming(vehicleRecords)
+              const lastVisit = latestRecord(vehicleRecords)
+              const nextVisit = latestUpcoming(vehicleRecords)
               const plate = formatPlate(vehicle.licensePlate)
 
               return (
@@ -289,16 +289,16 @@ export function HomeScreen() {
                     </div>
                     <div className="min-w-0 text-left">
                       <div className={`${typeCaption} sm:hidden`}>Posledný servis</div>
-                      <div className={cn(typeMeta, "truncate", !lastOil && typeDash)}>
-                        {lastOil
-                          ? `${formatDate(lastOil.serviceDate)} · ${formatKm(lastOil.mileage)}`
+                      <div className={cn(typeMeta, "truncate", !lastVisit && typeDash)}>
+                        {lastVisit
+                          ? `${formatDate(lastVisit.serviceDate)} · ${formatKm(lastVisit.mileage)}`
                           : "–"}
                       </div>
                     </div>
                     <div className="min-w-0 text-left">
                       <div className={`${typeCaption} sm:hidden`}>Ďalší servis</div>
-                      <div className={cn(typeMeta, "truncate", !nextOil && typeDash)}>
-                        {nextOil ? formatNextService(nextOil) || "–" : "–"}
+                      <div className={cn(typeMeta, "truncate", !nextVisit && typeDash)}>
+                        {nextVisit ? formatNextService(nextVisit) || "–" : "–"}
                       </div>
                     </div>
                   </Link>

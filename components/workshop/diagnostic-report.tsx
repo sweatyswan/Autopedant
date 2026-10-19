@@ -29,6 +29,10 @@ import {
 import type { DraftItem } from "@/lib/record-draft"
 import { cn } from "@/lib/utils"
 
+function isFileDrag(event: DragEvent<HTMLElement>) {
+  return [...event.dataTransfer.types].includes("Files")
+}
+
 type ReportRef = {
   id?: string
   name?: string
@@ -59,24 +63,36 @@ export function DiagnosticReportField({
   }
 
   function handleDragEnter(event: DragEvent<HTMLDivElement>) {
+    if (!isFileDrag(event)) {
+      return
+    }
     event.preventDefault()
     event.stopPropagation()
     setDragActive(true)
   }
 
   function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    if (!isFileDrag(event)) {
+      return
+    }
     event.preventDefault()
     event.stopPropagation()
     event.dataTransfer.dropEffect = "copy"
   }
 
   function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    if (!isFileDrag(event)) {
+      return
+    }
     event.preventDefault()
     event.stopPropagation()
     setDragActive(false)
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
+    if (!isFileDrag(event)) {
+      return
+    }
     event.preventDefault()
     event.stopPropagation()
     dragDepth.current = 0
@@ -120,7 +136,7 @@ export function DiagnosticReportField({
 
   return (
     <div
-      className="mt-3 flex min-w-0 flex-col gap-1 text-left"
+      className="mt-3 flex min-w-0 flex-col gap-1 text-left sm:ml-[calc(1.5rem+1rem)]"
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -192,7 +208,7 @@ export function DiagnosticReportView({ report }: { report: ReportRef }) {
   }
 
   return (
-    <div className="mt-3 min-w-0 text-left">
+    <div className="mt-3 flex min-w-0 flex-col gap-1 text-left">
       <div className={typeCaption}>Diagnostický report</div>
       <div className="flex min-w-0 items-center gap-2">
         <DiagnosticReportPreviewButton report={report} />

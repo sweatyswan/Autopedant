@@ -71,7 +71,7 @@ import {
 import { formatDate, formatKm, formatMoney, formatNextService, formatPlate, formatVehicleSpec, parseKm } from "@/lib/format"
 import { recordTotals, type MoneyTotals } from "@/lib/finance"
 import { downloadHistoryPdf, downloadVisitPdf } from "@/lib/visit-pdf"
-import { latestOilRecord, latestOilUpcoming } from "@/lib/list-query"
+import { latestUpcoming } from "@/lib/list-query"
 import { diagnosticScopeText, diagnosticStatusText, isDiagnosticAction } from "@/lib/service-catalog"
 import { serviceCategories, type Customer, type ServiceRecord, type Vehicle } from "@/lib/types"
 import { useWorkshop } from "@/lib/workshop-context"
@@ -120,8 +120,7 @@ export function VehicleScreen() {
   )
   const lastVisit = history[0]
   const firstVisit = history[history.length - 1]
-  const lastOil = latestOilRecord(history)
-  const nextOil = latestOilUpcoming(history)
+  const nextVisit = latestUpcoming(history)
   const firstVisitStamp = firstVisit
     ? `${formatDate(firstVisit.serviceDate)} · ${formatKm(firstVisit.mileage)}`
     : "–"
@@ -196,13 +195,13 @@ export function VehicleScreen() {
           <div className={cn(factsGrid, "mt-3 border-t border-neutral-200 pt-3")}>
             <div className="min-w-0 text-left">
               <div className={typeCaption}>Posledný servis</div>
-              <div className={cn(typeMeta, !lastOil && typeDash)}>
-                {lastOil ? `${formatDate(lastOil.serviceDate)} · ${formatKm(lastOil.mileage)}` : "–"}
+              <div className={cn(typeMeta, !lastVisit && typeDash)}>
+                {lastVisit ? `${formatDate(lastVisit.serviceDate)} · ${formatKm(lastVisit.mileage)}` : "–"}
               </div>
             </div>
             <div className="min-w-0 text-left">
               <div className={typeCaption}>Ďalší servis</div>
-              <div className={cn(typeMeta, !nextOil && typeDash)}>{nextOil ? formatNextService(nextOil) : "–"}</div>
+              <div className={cn(typeMeta, !nextVisit && typeDash)}>{nextVisit ? formatNextService(nextVisit) : "–"}</div>
             </div>
             <div className="min-w-0 text-left">
               <div className={typeCaption}>Servisné zákroky</div>
@@ -645,8 +644,7 @@ function RecordDetails({
                 return (
                   <div key={item.id} className="px-4 py-3">
                     <div className={diagnosticItemGrid}>
-                      <div>
-                        <div className={typeCaption}>Úkon</div>
+                      <div className="sm:pt-4">
                         <ActionBadge action={item.actionType} />
                       </div>
                       <div className="min-w-0 text-left">

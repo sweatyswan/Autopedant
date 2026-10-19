@@ -13,7 +13,8 @@ export function recordTotals(record: ServiceRecord): MoneyTotals {
   const purchase = record.items.reduce((sum, item) => sum + item.purchasePrice, 0)
   const sell = record.items.reduce((sum, item) => sum + item.sellPrice, 0)
   const margin = record.materialEarnings ?? sell - purchase
-  const billed = record.billedAmount ?? 0
+  const computedBilled = record.laborCost + purchase + margin
+  const billed = record.billedAmount ? record.billedAmount : computedBilled
 
   return {
     purchase,

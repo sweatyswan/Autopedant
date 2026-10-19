@@ -33,28 +33,6 @@ export function latestUpcoming(
   return latestRecord(records.filter((record) => Boolean(formatNextService(record))))
 }
 
-function isEngineOil(name: string) {
-  const normalized = name.toLocaleLowerCase("sk")
-  if (/filter|prevod|servo/.test(normalized)) {
-    return false
-  }
-
-  return /olej/.test(normalized)
-}
-
-export function isOilRecord(record: ServiceRecord) {
-  return record.items.some((item) => isEngineOil(item.partName))
-}
-
-export function latestOilRecord(records: ServiceRecord[]) {
-  return latestRecord(records.filter(isOilRecord))
-}
-
-export function latestOilUpcoming(records: ServiceRecord[]) {
-  const lastOil = latestOilRecord(records)
-  return lastOil && formatNextService(lastOil) ? lastOil : undefined
-}
-
 export function vehicleBrands(vehicles: Vehicle[]) {
   return [...new Set(vehicles.map((vehicle) => vehicleBrand(vehicle.makeModel)).filter(Boolean))].sort((left, right) =>
     left.localeCompare(right, "sk")
@@ -164,13 +142,13 @@ export function sortVehicles(
       return compareNext(records, left.id, right.id, sign)
     }
 
-    return sign * latestOilDate(records, left.id).localeCompare(latestOilDate(records, right.id))
+    return sign * latestServiceDate(records, left.id).localeCompare(latestServiceDate(records, right.id))
   })
 }
 
 function compareNext(records: ServiceRecord[], leftId: string, rightId: string, sign: number) {
-  const left = nextSortKey(latestOilUpcoming(records.filter((record) => record.vehicleId === leftId)))
-  const right = nextSortKey(latestOilUpcoming(records.filter((record) => record.vehicleId === rightId)))
+  const left = nextSortKey(latestUpcoming(records.filter((record) => record.vehicleId === leftId)))
+  const right = nextSortKey(latestUpcoming(records.filter((record) => record.vehicleId === rightId)))
 
   if (left.rank !== right.rank) {
     return left.rank - right.rank
@@ -199,7 +177,7 @@ function nextSortKey(record?: { nextServiceDate?: string; nextServiceMileage?: n
   return { rank: 1, date: "", km: record.nextServiceMileage ?? Number.MAX_SAFE_INTEGER }
 }
 
-function latestOilDate(records: ServiceRecord[], vehicleId: string) {
-  return latestOilRecord(records.filter((record) => record.vehicleId === vehicleId))?.serviceDate ?? ""
+function latestServiceDate(records: ServiceRecord[], vehicleId: string) {
+  return latestRecord(records.filter((record) => record.vehicleId === vehicleId))?.serviceDate ?? ""
 }
 

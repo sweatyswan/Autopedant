@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Bin, Check, Plus, X } from "@keyline-icons/react"
+import { useEffect, useRef, useState, type DragEvent } from "react"
+import { Bin, Check, GripVertical, Plus, X } from "@keyline-icons/react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -98,6 +98,9 @@ export function RecordEditor({
   const [items, setItems] = useState<DraftItem[]>(
     record?.items.length ? record.items.map(draftFromItem) : [emptyItem()]
   )
+  const dragKey = useRef<string | null>(null)
+  const [draggingKey, setDraggingKey] = useState<string | null>(null)
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null)
   const [errors, setErrors] = useState<Partial<Record<RecordField, string>>>({})
   const [saving, setSaving] = useState(false)
   const money = draftMoney(items, laborCost, materialEarnings, billedAmount)
@@ -136,6 +139,33 @@ export function RecordEditor({
 
   function updateItem(key: string, patch: Partial<DraftItem>) {
     setItems((current) => current.map((item) => (item.key === key ? { ...item, ...patch } : item)))
+  }
+
+  function endItemDrag() {
+    dragKey.current = null
+    setDraggingKey(null)
+    setDragOverKey(null)
+  }
+
+  function dropItem(targetKey: string) {
+    const fromKey = dragKey.current
+    endItemDrag()
+    if (!fromKey || fromKey === targetKey) {
+      return
+    }
+
+    setItems((current) => {
+      const from = current.findIndex((row) => row.key === fromKey)
+      const to = current.findIndex((row) => row.key === targetKey)
+      if (from < 0 || to < 0 || from === to) {
+        return current
+      }
+
+      const next = [...current]
+      const [row] = next.splice(from, 1)
+      next.splice(to, 0, row)
+      return next
+    })
   }
 
   function submit(event: React.FormEvent) {
@@ -266,8 +296,18 @@ export function RecordEditor({
             <ItemEditorRow
               key={item.key}
               item={item}
+              canReorder={items.length > 1}
+              dragging={draggingKey === item.key}
+              dropTarget={dragOverKey === item.key && draggingKey !== item.key}
               onChange={(patch) => updateItem(item.key, patch)}
               onRemove={() => setItems((current) => current.filter((row) => row.key !== item.key))}
+              onDragStart={() => {
+                dragKey.current = item.key
+                setDraggingKey(item.key)
+              }}
+              onDragEnd={endItemDrag}
+              onDragOver={() => setDragOverKey((current) => (current === item.key ? current : item.key))}
+              onDrop={() => dropItem(item.key)}
             />
           ))}
         </div>
@@ -365,16 +405,46 @@ function recordFieldFromError(message: string): RecordField {
   return "form"
 }
 
+function isFileDrag(event: DragEvent<HTMLElement>) {
+  return [...event.dataTransfer.types].includes("Files")
+}
+
+const liftedRowShadow =
+  "0px 0px 0px 1px oklch(0 0 0 / 0.08), 0px 4px 8px -2px oklch(0 0 0 / 0.1), 0px 12px 24px 0px oklch(0 0 0 / 0.12)"
+
+const reorderControlClass =
+  "inline-flex size-6 items-center justify-center border-0 bg-transparent p-0 text-neutral-600 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-default disabled:opacity-40"
+
 function ItemEditorRow({
   item,
+  canReorder,
+  dragging,
+  dropTarget,
   onChange,
   onRemove,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
 }: {
   item: DraftItem
+  canReorder: boolean
+  dragging: boolean
+  dropTarget: boolean
   onChange: (patch: Partial<DraftItem>) => void
   onRemove: () => void
+  onDragStart: () => void
+  onDragEnd: () => void
+  onDragOver: () => void
+  onDrop: () => void
 }) {
   const diagnostic = isDiagnosticAction(item.actionType)
+  const dragImage = useRef<HTMLElement | null>(null)
+
+  function clearDragImage() {
+    dragImage.current?.remove()
+    dragImage.current = null
+  }
 
   function chooseAction(value: string | null) {
     if (!value) {
@@ -412,8 +482,88 @@ function ItemEditorRow({
   }
 
   return (
-    <div className="px-4 py-3">
-      <div className={cn(diagnostic ? diagnosticItemGridEditor : itemGridEditor)}>
+    <div
+      data-item-row
+      className={cn(
+        "px-4 py-3 ease-out motion-safe:transition-[background-color,box-shadow,transform] motion-safe:duration-200",
+        dragging && "bg-[#F4F7F9] shadow-[inset_0_0_0_1px_#d4dde3]",
+        dropTarget && "relative z-10 bg-[#c5e6f2] shadow-[inset_0_0_0_1px_#0F7AAB]"
+      )}
+      onDragOver={(event) => {
+        if (isFileDrag(event)) {
+          return
+        }
+        event.preventDefault()
+        event.dataTransfer.dropEffect = "move"
+        onDragOver()
+      }}
+      onDrop={(event) => {
+        if (isFileDrag(event)) {
+          return
+        }
+        event.preventDefault()
+        onDrop()
+      }}
+    >
+      <div
+        className={cn(
+          diagnostic ? diagnosticItemGridEditor : itemGridEditor,
+          "motion-safe:transition-opacity motion-safe:duration-200",
+          dragging && "opacity-40"
+        )}
+      >
+        <div className="flex flex-col gap-1">
+          <span className={cn(typeLabel, "invisible")} aria-hidden>
+            Úkon
+          </span>
+          <button
+            type="button"
+            draggable={canReorder}
+            disabled={!canReorder}
+            aria-label="Presunúť úkon"
+            className={cn(
+              reorderControlClass,
+              "h-8",
+              "motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out",
+              canReorder ? "cursor-grab motion-safe:active:scale-110 active:cursor-grabbing" : "opacity-40",
+              dragging && "text-[#095A7C]"
+            )}
+            onDragStart={(event) => {
+              if (!canReorder) {
+                event.preventDefault()
+                return
+              }
+              const row = event.currentTarget.closest("[data-item-row]")
+              if (row instanceof HTMLElement) {
+                const rect = row.getBoundingClientRect()
+                const clone = row.cloneNode(true) as HTMLElement
+                clone.style.position = "fixed"
+                clone.style.top = "-10000px"
+                clone.style.left = "0"
+                clone.style.width = `${rect.width}px`
+                clone.style.height = `${rect.height}px`
+                clone.style.margin = "0"
+                clone.style.pointerEvents = "none"
+                clone.style.opacity = "1"
+                clone.style.overflow = "hidden"
+                clone.style.background = "#ffffff"
+                clone.style.boxShadow = liftedRowShadow
+                document.body.appendChild(clone)
+                dragImage.current = clone
+                event.dataTransfer.setDragImage(clone, event.clientX - rect.left, event.clientY - rect.top)
+              }
+              event.dataTransfer.effectAllowed = "move"
+              event.dataTransfer.setData("text/plain", item.key)
+              onDragStart()
+            }}
+            onDragEnd={() => {
+              clearDragImage()
+              onDragEnd()
+            }}
+          >
+            <GripVertical size={iconSize} />
+          </button>
+        </div>
         <div className="flex min-w-0 flex-col gap-1 text-left">
           <Label className={typeLabel} htmlFor={`${item.key}-action`}>
             Úkon
